@@ -1,0 +1,30 @@
+/* style.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --text-main: #1e293b;
+    --accent: #3b82f6;
+}
+
+.dark {
+    --bg-main: #0f172a;
+    --bg-card: #1e293b;
+    --text-main: #f1f5f9;
+    --accent: #60a5fa;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: 'Noto Sans Thai', sans-serif;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.manga-card {
+    background-color: var(--bg-card);
+    @apply rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-slate-200 dark:border-slate-700;
+}

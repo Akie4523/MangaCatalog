@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Favorites - Manga Archive</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { darkMode: 'class' }
+    if (localStorage.getItem("dark") === "true") {
+      document.documentElement.classList.add("dark");
+    }
+  </script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen">
+
+  <nav class="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
+      <a href="index.html" class="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">Manga Archive</a>
+      <a href="index.html" class="text-sm font-medium hover:text-blue-500">← กลับหน้าหลัก</a>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 py-10">
+    <h1 class="text-3xl font-bold mb-8">รายการโปรดของฉัน</h1>
+    
+    <div id="manga-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+      <div class="col-span-full text-center py-20 opacity-50 text-lg">กำลังโหลดรายการโปรด...</div>
+    </div>
+  </main>
+
+  <script>
+    const API_URL = "https://manga-archive.onrender.com";
+    const username = localStorage.getItem("username");
+
+    async function loadFavorites() {
+      if (!username) return window.location.href = "login.html";
+      
+      try {
+        const res = await fetch(`${API_URL}/manga`);
+        const allManga = await res.json();
+        const myFavs = JSON.parse(localStorage.getItem("myFavs") || "[]");
+        
+        const favList = allManga.filter(m => myFavs.includes(m.id.toString()));
+        render(favList);
+      } catch (err) {
+        document.getElementById("manga-list").innerHTML = "❌ โหลดข้อมูลไม่สำเร็จ";
+      }
+    }
+
+    function render(data) {
+      const container = document.getElementById("manga-list");
+      if (data.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-20 opacity-50">ยังไม่มีรายการโปรด</div>`;
+        return;
+      }
+
+      container.innerHTML = data.map(manga => `
+        <div class="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm transition hover:shadow-lg">
+          <div class="relative aspect-[3/4]">
+            <img src="${manga.cover}" class="w-full h-full object-cover">
+            <button onclick="removeFav('${manga.id}')" class="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg active:scale-90 transition">❤️</button>
+          </div>
+          <div class="p-3">
+            <h3 class="font-bold text-sm truncate mb-3">${manga.title}</h3>
+            <a href="detail.html?id=${manga.id}" class="block text-center py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-semibold hover:bg-blue-600 hover:text-white transition">อ่านรายละเอียด</a>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function removeFav(id) {
+      if (!confirm("ลบออกจากรายการโปรด?")) return;
+      const token = localStorage.getItem("adminToken");
+      const res = await fetch(`${API_URL}/favorite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": token },
+        body: JSON.stringify({ username, mangaId: id })
+      });
+      const result = await res.json();
+      if (result.success) {
+        localStorage.setItem("myFavs", JSON.stringify(result.favorites));
+        loadFavorites();
+      }
+    }
+
+    loadFavorites();
+  </script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clean Reader - อยู่ระหว่างการพัฒนา</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- Card แจ้งเตือนสถานะ -->
+    <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center shadow-2xl relative overflow-hidden">
+        <!-- Accent Decor -->
+        <div class="absolute -top-12 -right-12 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl"></div>
+        
+        <div class="w-16 h-16 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4">
+            <i class="fa-solid fa-screwdriver-wrench"></i>
+        </div>
+
+        <h2 class="text-xl font-bold text-white mb-2">กำลังพัฒนาฟีเจอร์นี้</h2>
+        <p class="text-xs text-slate-400 leading-relaxed mb-6">
+            โหมดอ่านแบบบล็อกโฆษณา (Ad-Block Reader) กำลังอยู่ในระหว่างการปรับปรุงระบบดึงรูปภาพ เพื่อรองรับโครงสร้างเว็บต้นทาง คุณสามารถกดปุ่มด้านล่างเพื่อไปยังหน้าเว็บต้นทางโดยตรงได้ครับ
+        </p>
+
+        <div class="flex flex-col gap-2.5">
+            <button id="btnOpenOriginal" onclick="openOriginalUrl()" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-xl transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                <span>ไปที่หน้าเว็บต้นทาง</span>
+            </button>
+            <button onclick="history.back()" class="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-xl transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>ย้อนกลับ</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const targetUrl = params.get('url');
+
+        function openOriginalUrl() {
+            if (targetUrl) {
+                window.location.href = targetUrl;
+            } else {
+                alert("ไม่พบ URL เว็บต้นทาง");
+            }
+        }
+    </script>
+</body>
+</html>

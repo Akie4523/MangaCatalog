@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Manage Manga</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { brand: { 500: '#6366f1', 600: '#4f46e5' } } } } }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
+
+    <div class="max-w-5xl mx-auto px-4 py-10">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 id="pageTitle" class="text-2xl font-bold text-white">แผงจัดการมังงะ (Admin)</h1>
+                <p class="text-slate-400 text-sm">จัดการเพิ่ม/แก้ไขข้อมูลมังงะครบทุกฟิลด์</p>
+            </div>
+            <a href="/" class="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white text-sm">กลับหน้าหลัก</a>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <form id="mangaForm" onsubmit="saveManga(event)" class="space-y-6">
+                <input type="hidden" id="editId">
+
+                <!-- หมวดหมู่: ชื่อเรื่อง -->
+                <div class="space-y-3">
+                    <h2 class="text-sm font-bold text-brand-400 uppercase tracking-wider">1. ชื่อเรื่อง</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ชื่อภาษาไทย *</label>
+                            <input type="text" id="th_name" required class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ชื่อภาษาอังกฤษ</label>
+                            <input type="text" id="en_name" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ชื่อต้นฉบับ/ญี่ปุ่น (JP Name)</label>
+                            <input type="text" id="jp_name" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- หมวดหมู่: ข้อมูลทั่วไป -->
+                <div class="space-y-3 pt-4 border-t border-slate-800">
+                    <h2 class="text-sm font-bold text-brand-400 uppercase tracking-wider">2. รายละเอียด & หน้าปก</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">URL รูปภาพปก *</label>
+                            <input type="url" id="cover" required class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">คะแนน (Rating เช่น 8.5/10)</label>
+                            <input type="text" id="rating" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">แท็กประเภท (คั่นด้วยจุลภาค ,)</label>
+                        <input type="text" id="tags" placeholder="Action, Fantasy, Romance" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">เรื่องย่อ</label>
+                        <textarea id="description" rows="3" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500"></textarea>
+                    </div>
+                </div>
+
+                <!-- หมวดหมู่: ทีมงานผู้สร้าง -->
+                <div class="space-y-3 pt-4 border-t border-slate-800">
+                    <h2 class="text-sm font-bold text-brand-400 uppercase tracking-wider">3. ทีมงาน & ผู้แต่ง</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ผู้แต่ง (Author)</label>
+                            <input type="text" id="author" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ผู้วาด (Artist)</label>
+                            <input type="text" id="artist" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ผู้แปล/ค่ายแปล (Translator)</label>
+                            <input type="text" id="translator" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ลิงก์ค่ายแปล (Translator Link)</label>
+                            <input type="url" id="translator_link" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- หมวดหมู่: แหล่งอ่าน & ซื้อลิขสิทธิ์ -->
+                <div class="space-y-3 pt-4 border-t border-slate-800">
+                    <h2 class="text-sm font-bold text-brand-400 uppercase tracking-wider">4. ลิงก์แหล่งอ่าน & โพสต์ชุมชน</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ลิงก์อ่านแปลไทย (Thai URL)</label>
+                            <input type="url" id="thai_url" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ลิงก์ซื้อลิขสิทธิ์ไทย (Thai Buy URL)</label>
+                            <input type="url" id="thai_url_Buy" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ลิงก์ภาษาอังกฤษ (Eng URL)</label>
+                            <input type="url" id="eng_url" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ลิงก์ซื้อภาษาอังกฤษ (Eng Buy URL)</label>
+                            <input type="url" id="eng_url_Buy" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ลิงก์ต้นฉบับ/ญี่ปุ่น (Original URL)</label>
+                            <input type="url" id="original_url" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">ลิงก์ซื้อต้นฉบับ (Original Buy URL)</label>
+                            <input type="url" id="original_url_Buy" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">ลิงก์ Facebook Post</label>
+                        <input type="url" id="facebook_post_url" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500">
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-6 border-t border-slate-800">
+                    <button type="submit" class="flex-1 bg-brand-600 hover:bg-brand-500 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-brand-500/20 text-sm">
+                        บันทึกข้อมูลมังงะ
+                    </button>
+                    <button type="button" onclick="resetForm()" class="px-6 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-3 rounded-xl text-sm">
+                        ล้างข้อมูล
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function checkAuth() {
+            const token = localStorage.getItem('token') || localStorage.getItem('adminToken');
+            if (!token) window.location.href = '/login';
+            return token;
+        }
+
+        // ฟังก์ชันดึงข้อมูลเก่ามาใส่ใน Form เมื่อเข้าผ่าน URL ?edit=ID
+        async function checkEditMode() {
+            const params = new URLSearchParams(window.location.search);
+            const editId = params.get('edit');
+
+            if (editId) {
+                try {
+                    const res = await fetch(`/api/manga/${editId}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+
+                    // ใส่ค่าลงใน Form
+                    document.getElementById('editId').value = data._id;
+                    document.getElementById('th_name').value = data.th_name || data.title || '';
+                    document.getElementById('en_name').value = data.en_name || '';
+                    document.getElementById('jp_name').value = data.jp_name || '';
+                    document.getElementById('cover').value = data.cover || '';
+                    document.getElementById('rating').value = data.rating || '';
+                    document.getElementById('tags').value = (data.tags || []).join(', ');
+                    document.getElementById('description').value = data.description || '';
+                    document.getElementById('author').value = data.author || '';
+                    document.getElementById('artist').value = data.artist || '';
+                    document.getElementById('translator').value = data.translator || '';
+                    document.getElementById('translator_link').value = data.translator_link || '';
+                    document.getElementById('thai_url').value = data.thai_url || '';
+                    document.getElementById('thai_url_Buy').value = data.thai_url_Buy || '';
+                    document.getElementById('eng_url').value = data.eng_url || '';
+                    document.getElementById('eng_url_Buy').value = data.eng_url_Buy || '';
+                    document.getElementById('original_url').value = data.original_url || '';
+                    document.getElementById('original_url_Buy').value = data.original_url_Buy || '';
+                    document.getElementById('facebook_post_url').value = data.facebook_post_url || '';
+
+                    // เปลี่ยนข้อความหัวข้อ
+                    document.getElementById('pageTitle').innerText = 'แก้ไขข้อมูลมังงะ';
+                } catch (err) {
+                    console.error('Error loading manga data:', err);
+                }
+            }
+        }
+
+        async function saveManga(e) {
+            e.preventDefault();
+            const token = checkAuth();
+            const editId = document.getElementById('editId').value;
+
+            const payload = {
+                title: document.getElementById('th_name').value,
+                th_name: document.getElementById('th_name').value,
+                en_name: document.getElementById('en_name').value,
+                jp_name: document.getElementById('jp_name').value,
+                cover: document.getElementById('cover').value,
+                rating: document.getElementById('rating').value,
+                description: document.getElementById('description').value,
+                tags: document.getElementById('tags').value.split(',').map(t => t.trim()).filter(Boolean),
+                author: document.getElementById('author').value,
+                artist: document.getElementById('artist').value,
+                translator: document.getElementById('translator').value,
+                translator_link: document.getElementById('translator_link').value,
+                thai_url: document.getElementById('thai_url').value,
+                thai_url_Buy: document.getElementById('thai_url_Buy').value,
+                eng_url: document.getElementById('eng_url').value,
+                eng_url_Buy: document.getElementById('eng_url_Buy').value,
+                original_url: document.getElementById('original_url').value,
+                original_url_Buy: document.getElementById('original_url_Buy').value,
+                facebook_post_url: document.getElementById('facebook_post_url').value,
+                updated_at: new Date().toISOString()
+            };
+
+            const url = editId ? `/api/manga/${editId}` : '/add';
+            const method = editId ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    alert('บันทึกข้อมูลสำเร็จ!');
+                    window.location.href = '/';
+                } else {
+                    const err = await res.json();
+                    alert('เกิดข้อผิดพลาด: ' + (err.message || 'ไม่สามารถบันทึกได้'));
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('mangaForm').reset();
+            document.getElementById('editId').value = '';
+            document.getElementById('pageTitle').innerText = 'แผงจัดการมังงะ (Admin)';
+        }
+
+        // เริ่มการทำงานเมื่อโหลดหน้า
+        checkAuth();
+        checkEditMode();
+    </script>
+</body>
+</html>
