@@ -1,297 +1,54 @@
 <!DOCTYPE html>
-<html lang="th" class="dark">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manga Library</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
-                    }
-                }
-            }
-        }
-    </script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MangaCatalog — รวมมังงะแปลไทย ต้นฉบับ และแหล่งซื้อลิขสิทธิ์</title>
+    <meta name="description" content="ไดเรกทอรีมังงะ เว็บตูน และนิยาย รวมลิงก์อ่านแปลไทย ต้นฉบับ และแหล่งซื้อลิขสิทธิ์อย่างเป็นทางการ">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Mitr:wght@400;500&display=swap">
+    <link rel="stylesheet" href="/assets/site.css">
+    <script src="/assets/app.js"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-white">
+<body>
+    <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+    <header id="site-header"></header>
 
-    <!-- Responsive Navbar -->
-        <nav class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex items-center justify-between h-16">
-                    
-                    <!-- Left: Logo -->
-                    <div class="flex items-center gap-3">
-                        <a href="/" class="flex items-center gap-2.5 group">
-                            <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 group-hover:scale-105 transition-transform">
-                                <i class="fa-solid fa-book-open text-base"></i>
-                            </div>
-                            <span class="font-bold text-lg text-white tracking-tight">MangaCatalog</span>
-                        </a>
-                    </div>
-
-                    <!-- Right: Desktop Navigation Items (ซ่อนบนมือถือ) -->
-                    <div class="hidden md:flex items-center gap-2">
-                        <a href="/favorites" class="p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-rose-500 hover:text-rose-400 border border-slate-700/50 transition flex items-center justify-center">
-                            <i class="fa-solid fa-heart text-sm"></i>
-                        </a>
-
-                        <a href="/about" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-1.5">
-                            <i class="fa-solid fa-circle-info text-slate-400"></i>
-                            <span>เกี่ยวกับเรา</span>
-                        </a>
-
-                        <a href="/admin" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5 shadow-md shadow-indigo-600/20">
-                            <i class="fa-solid fa-user-shield"></i>
-                            <span>แผงควบคุม</span>
-                        </a>
-
-                        <button onclick="logout()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition flex items-center gap-1.5">
-                            <i class="fa-solid fa-right-from-bracket"></i>
-                            <span>ออกจากระบบ</span>
-                        </button>
-                    </div>
-
-                    <!-- Right: Mobile Hamburger Button (แสดงเฉพาะบนมือถือ) -->
-                    <div class="md:hidden flex items-center gap-2">
-                        <a href="/favorites" class="p-2 rounded-xl bg-slate-800/60 text-rose-500 border border-slate-700/50">
-                            <i class="fa-solid fa-heart text-sm"></i>
-                        </a>
-                        <button id="mobileMenuBtn" onclick="toggleMobileMenu()" class="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700 focus:outline-none">
-                            <i id="menuIcon" class="fa-solid fa-bars text-lg"></i>
-                        </button>
-                    </div>
+    <main id="main">
+        <section class="masthead">
+            <div class="wrap">
+                <h1>รวมลิงก์อ่านมังงะแปลไทย ต้นฉบับ และแหล่งซื้อลิขสิทธิ์ไว้ในที่เดียว</h1>
+                <p>เว็บนี้ไม่ได้โฮสต์ภาพมังงะ ทุกปุ่มจะพาไปยังเว็บของผู้แปลหรือเจ้าของลิขสิทธิ์โดยตรง</p>
+                <div class="search">
+                    <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                    <label class="sr" for="q">ค้นหามังงะ</label>
+                    <input id="q" type="search" placeholder="ค้นหาชื่อเรื่อง หรือผู้แต่ง" autocomplete="off">
                 </div>
             </div>
+        </section>
 
-            <!-- Mobile Dropdown Menu -->
-            <div id="mobileMenu" class="hidden md:hidden border-t border-slate-800/80 bg-slate-900/95 px-4 pt-3 pb-4 space-y-2">
-                <a href="/admin" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium">
-                    <i class="fa-solid fa-user-shield text-base"></i>
-                    <span>แผงควบคุม</span>
-                </a>
-
-                <a href="/about" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800 text-sm font-medium">
-                    <i class="fa-solid fa-circle-info text-slate-400 text-base"></i>
-                    <span>เกี่ยวกับเรา</span>
-                </a>
-
-                <button onclick="logout()" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 text-sm font-medium transition text-left">
-                    <i class="fa-solid fa-right-from-bracket text-base"></i>
-                    <span>ออกจากระบบ</span>
-                </button>
-            </div>
-        </nav>
-
-        <!-- JavaScript สลับเปิด-ปิด เมนูปุ่ม Hamburger -->
-        <script>
-            function toggleMobileMenu() {
-                const menu = document.getElementById('mobileMenu');
-                const icon = document.getElementById('menuIcon');
-                
-                menu.classList.toggle('hidden');
-                
-                if (menu.classList.contains('hidden')) {
-                    icon.classList.remove('fa-xmark');
-                    icon.classList.add('fa-bars');
-                } else {
-                    icon.classList.remove('fa-bars');
-                    icon.classList.add('fa-xmark');
-                }
-            }
-        </script>
-
-
-    <div id="welcomeModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200">
-            <div class="flex items-center gap-3 text-indigo-400">
-                <div class="p-3 rounded-2xl bg-indigo-500/10">
-                    <i class="fa-solid fa-book-bookmark text-xl"></i>
-                </div>
-                <h3 class="text-lg font-bold text-white">ยินดีต้อนรับสู่ MangaCatalog</h3>
-            </div>
-            
-            <div class="text-xs text-slate-300 leading-relaxed space-y-2 border-t border-b border-slate-800/80 py-3">
-                <p>📌 **เว็บนี้คืออะไร?**</p>
-                <p class="text-slate-400">
-                    เป็นศูนย์รวมไดเรกทอรีมังงะ/เว็บตูน ที่รวบรวมลิงก์อ่านแปลไทย ต้นฉบับ และแหล่งซื้อลิขสิทธิ์อย่างเป็นทางการ เพื่อช่วยให้ค้นหาง่ายขึ้นในที่เดียว (ไม่มีการโฮสต์ไฟล์ภาพบนเว็บ)
-                </p>
-                <p class="pt-1">📩 **พบปัญหา/ติดต่อเจ้าของเว็บ:**</p>
-                <p class="text-slate-400">
-                    หากพบลิงก์เสีย ต้องการแจ้งลบ หรือติดต่อสอบถาม สามารถแจ้งได้ที่ Email: <span class="text-indigo-400 font-semibold">elshinosawa4523@gmail.com</span> หรือ Facebook Fanpage
-                </p>
-            </div>
-
-            <div class="flex gap-2">
-                <a href="/about" class="w-1/2 text-center py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all">
-                    ดูรายละเอียดเต็ม
-                </a>
-                <button onclick="closeWelcomeModal()" class="w-1/2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all shadow-lg shadow-indigo-600/20">
-                    เข้าสู่เว็บไซต์
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Header & Search Section -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">รายการมังงะทั้งหมด</h1>
-                <p class="text-slate-400 text-sm mt-1">ค้นหาและจัดการคอลเลกชันมังงะที่คุณชื่นชอบ</p>
-            </div>
-            
-            <div class="relative w-full md:w-80">
-                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                <input type="text" id="searchInput" oninput="filterManga()" placeholder="ค้นหารายชื่อมังงะ..." 
-                    class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 text-slate-200 placeholder-slate-500 text-sm outline-none transition-all">
-            </div>
-        </div>
-
-        <!-- Tag Filters -->
-        <div id="tagContainer" class="flex flex-wrap gap-2 mb-8">
-            <!-- Tags generated dynamically -->
-        </div>
-
-        <!-- Manga Cards Grid -->
-        <div id="mangaGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
-            <!-- Skeleton Loading State -->
-            <script>
-                document.write(Array(12).fill(0).map(() => `
-                    <div class="animate-pulse bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-3">
-                        <div class="bg-slate-800 aspect-[2/3] rounded-xl w-full"></div>
-                        <div class="h-4 bg-slate-800 rounded w-3/4"></div>
-                        <div class="h-3 bg-slate-800 rounded w-1/2"></div>
-                    </div>
-                `).join(''));
-            </script>
+        <div class="wrap">
+            <div id="tags" class="chips" role="group" aria-label="กรองตามหมวด"></div>
+            <p id="count" class="count" aria-live="polite"></p>
+            <div id="shelf" class="shelf"></div>
         </div>
     </main>
 
-    <script>
-        let allManga = [];
-        let selectedTag = 'ALL';
+    <footer id="site-footer"></footer>
 
-        function escapeHTML(str) {
-            if (!str) return '';
-            return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
-        }
+    <dialog id="welcome" class="sheet" aria-labelledby="welcome-title">
+        <div class="stack">
+            <h2 id="welcome-title">ยินดีต้อนรับสู่ MangaCatalog</h2>
+            <p>เป็นศูนย์รวมไดเรกทอรีมังงะและเว็บตูน ที่รวบรวมลิงก์อ่านแปลไทย ต้นฉบับ และแหล่งซื้อลิขสิทธิ์อย่างเป็นทางการ ช่วยให้ค้นหาง่ายขึ้นในที่เดียว ไม่มีการโฮสต์ไฟล์ภาพบนเว็บนี้</p>
+            <p class="muted small">พบลิงก์เสีย ต้องการแจ้งลบ หรือติดต่อเจ้าของเว็บ ส่งอีเมลมาที่ <strong>elshinosawa4523@gmail.com</strong></p>
+            <div class="sheet-actions">
+                <a class="btn btn-sm" href="/about">อ่านรายละเอียดเพิ่มเติม</a>
+                <button class="btn btn-sm btn-primary" id="welcome-ok" type="button">เริ่มใช้งาน</button>
+            </div>
+        </div>
+    </dialog>
 
-        async function fetchManga() {
-            try {
-                const res = await fetch('/manga');
-                allManga = await res.json();
-                renderTags();
-                renderManga(allManga);
-            } catch (err) {
-                console.error('Error:', err);
-                document.getElementById('mangaGrid').innerHTML = `<div class="col-span-full text-center py-12 text-slate-400">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>`;
-            }
-        }
-
-        function checkFirstVisit() {
-            const hasVisited = localStorage.getItem('hasVisitedMangaCatalog');
-            if (!hasVisited) {
-                document.getElementById('welcomeModal').classList.remove('hidden');
-            }
-        }
-
-        function closeWelcomeModal() {
-            localStorage.setItem('hasVisitedMangaCatalog', 'true');
-            document.getElementById('welcomeModal').classList.add('hidden');
-        }
-
-        checkFirstVisit();
-
-        function renderTags() {
-            const tags = ['ALL', ...new Set(allManga.flatMap(m => m.tags || []))];
-            const container = document.getElementById('tagContainer');
-            container.innerHTML = tags.map(tag => `
-                <button onclick="selectTag('${escapeHTML(tag)}')" 
-                    class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border ${selectedTag === tag 
-                        ? 'bg-brand-600 text-white border-brand-500 shadow-md shadow-brand-500/20' 
-                        : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-slate-800'}">
-                    ${escapeHTML(tag)}
-                </button>
-            `).join('');
-        }
-
-        function selectTag(tag) {
-            selectedTag = tag;
-            renderTags();
-            filterManga();
-        }
-
-        function filterManga() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allManga.filter(m => {
-                const matchesSearch = (m.title && m.title.toLowerCase().includes(query)) ||
-                                     (m.th_name && m.th_name.toLowerCase().includes(query));
-                const matchesTag = selectedTag === 'ALL' || (m.tags && m.tags.includes(selectedTag));
-                return matchesSearch && matchesTag;
-            });
-            renderManga(filtered);
-        }
-
-        function renderManga(mangas) {
-            const grid = document.getElementById('mangaGrid');
-            if (mangas.length === 0) {
-                grid.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500">ไม่พบมังงะที่คุณกำลังค้นหา</div>`;
-                return;
-            }
-
-            grid.innerHTML = mangas.map(m => `
-                <div onclick="window.location.href='/detail?id=${escapeHTML(m._id || m.id)}'" 
-                     class="group relative bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-2.5 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-brand-500/5 cursor-pointer flex flex-col justify-between overflow-hidden">
-                    <div>
-                        <div class="relative aspect-[2/3] rounded-xl overflow-hidden bg-slate-950 mb-3">
-                            <img src="${encodeURI(m.cover || 'https://placehold.co/400x600?text=No+Cover')}" 
-                                 alt="${escapeHTML(m.title)}" 
-                                 loading="lazy"
-                                 class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                 onerror="this.onerror=null; this.src='https://placehold.co/400x600?text=No+Cover';">
-                            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        </div>
-                        <h3 class="font-bold text-sm text-slate-200 group-hover:text-brand-400 line-clamp-2 transition-colors duration-200">
-                            ${escapeHTML(m.th_name || m.title)}
-                        </h3>
-                    </div>
-                    <div class="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
-                        <span class="truncate max-w-[80%]">${escapeHTML(m.author || 'ไม่ทราบผู้แต่ง')}</span>
-                        <i class="fa-solid fa-chevron-right text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"></i>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function checkAuth() {
-            const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
-            const adminBtn = document.getElementById('adminBtn');
-            const logoutBtn = document.getElementById('logoutBtn');
-            const loginBtn = document.getElementById('loginBtn');
-
-            if (token) {
-                if (adminBtn) adminBtn.classList.remove('hidden');
-                if (logoutBtn) logoutBtn.classList.remove('hidden');
-                if (loginBtn) loginBtn.classList.add('hidden');
-            }
-        }
-
-        function logout() {
-            localStorage.removeItem('adminToken');
-            localStorage.removeItem('token');
-            localStorage.removeItem('username');
-            window.location.reload();
-        }
-
-        checkAuth();
-        fetchManga();
-    </script>
+    <script src="/assets/index.js"></script>
 </body>
 </html>

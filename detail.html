@@ -1,345 +1,48 @@
 <!DOCTYPE html>
-<html lang="th" class="dark">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manga Detail</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        brand: { 500: '#6366f1', 600: '#4f46e5' }
-                    }
-                }
-            }
-        }
-    </script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>รายละเอียดมังงะ — MangaCatalog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Mitr:wght@400;500&display=swap">
+    <link rel="stylesheet" href="/assets/site.css">
+    <script src="/assets/app.js"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
+<body>
+    <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+    <header id="site-header"></header>
 
-    <!-- Header Navbar -->
-    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-            <a href="/" class="flex items-center gap-2 text-white font-bold text-lg hover:text-indigo-400 transition-colors">
-                <i class="fa-solid fa-arrow-left text-sm"></i>
-                <span>กลับหน้าหลัก</span>
-            </a>
-            <div id="adminActions" class="hidden">
-                <button id="editBtn" class="px-3.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 text-xs font-semibold transition-all">
-                    <i class="fa-solid fa-pen-to-square mr-1"></i> แก้ไขข้อมูล
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Container -->
-    <main class="max-w-6xl mx-auto px-4 py-8">
-        <div id="content" class="animate-pulse space-y-8">
-            <div class="text-center py-20 text-slate-500">
-                <i class="fa-solid fa-spinner fa-spin text-2xl mb-2 block"></i>
-                กำลังโหลดข้อมูล...
+    <main id="main" class="wrap">
+        <div id="view" aria-live="polite">
+            <div class="detail">
+                <div class="detail-aside"><div class="sk"><div class="sk-cover"></div></div></div>
+                <div class="detail-main">
+                    <div class="sk"><div class="sk-line"></div><div class="sk-line short"></div></div>
+                </div>
             </div>
         </div>
     </main>
 
-    <!-- Modal แจ้งเตือนสำหรับ Facebook Post (เฉพาะมือถือ) -->
-    <div id="fbWarningModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative overflow-hidden">
-            <!-- Decoration Light -->
-            <div class="absolute -top-10 -right-10 w-28 h-28 bg-blue-500/10 rounded-full blur-xl"></div>
+    <footer id="site-footer"></footer>
 
-            <div class="flex items-center gap-3 mb-4">
-                <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 text-lg">
-                    <i class="fa-brands fa-facebook"></i>
-                </div>
-                <div>
-                    <h3 class="text-base font-bold text-white">แจ้งเตือนการเปิดโพสต์ Facebook</h3>
-                    <p class="text-xs text-slate-400">คำแนะนำในการเข้าชมบนมือถือ</p>
-                </div>
-            </div>
-
-            <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3.5 mb-5 space-y-2 text-xs text-slate-300 leading-relaxed">
-                <p class="text-amber-300 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i> หากลิงก์เปิดไม่ติดหรือติดบัคในแอป Facebook:</p>
-                <ul class="list-disc list-inside space-y-1 text-slate-400 pl-1">
-                    <li>แนะนำให้กด **คัดลอกลิงก์** นำไปวางในเบราว์เซอร์ (Chrome / Safari)</li>
-                    <li>สลับเป็น **Desktop site (โหมดเดสก์ท็อป)** และเปลี่ยนมุมมองจาก "ตาราง (Grid)" เป็น "โพสต์ (Post)" เพื่อให้อ่านตามลำดับได้สะดวก</li>
-                </ul>
-            </div>
-
-            <div class="flex flex-col gap-2">
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="copyCurrentFbUrl()" class="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-1.5 border border-slate-700/50">
-                        <i class="fa-regular fa-copy"></i>
-                        <span id="fbCopyBtnText">คัดลอกลิงก์</span>
-                    </button>
-                    <a id="btnProceedFb" href="#" target="_blank" rel="noopener noreferrer" onclick="closeFbModal()" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition flex items-center justify-center gap-1.5 text-center shadow-lg shadow-blue-600/20">
-                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                        <span>เปิดลิงก์ FB</span>
-                    </a>
-                </div>
-                <button onclick="closeFbModal()" class="w-full py-2 px-3 bg-transparent hover:bg-slate-800/50 text-slate-400 hover:text-slate-200 text-xs font-medium rounded-xl transition text-center">
-                    ยกเลิก
-                </button>
+    <dialog id="fb-dialog" class="sheet" aria-labelledby="fb-title">
+        <div class="stack">
+            <h2 id="fb-title">เปิดโพสต์ Facebook บนมือถือ</h2>
+            <p class="muted small">ถ้าลิงก์เปิดไม่ติดหรือค้างในแอป Facebook ให้ลอง:</p>
+            <ul class="bullets small">
+                <li>คัดลอกลิงก์ไปวางในเบราว์เซอร์ (Chrome / Safari)</li>
+                <li>เปิดเป็น <strong>เว็บเวอร์ชันเดสก์ท็อป</strong> แล้วเปลี่ยนมุมมองจาก "ตาราง" เป็น "โพสต์" จะอ่านตามลำดับได้ง่ายขึ้น</li>
+            </ul>
+            <div class="sheet-actions">
+                <button class="btn btn-sm btn-ghost" id="fb-cancel" type="button">ยกเลิก</button>
+                <button class="btn btn-sm" id="fb-copy" type="button"></button>
+                <a class="btn btn-sm btn-primary" id="fb-go" href="#" target="_blank" rel="noopener noreferrer">เปิดลิงก์ Facebook</a>
             </div>
         </div>
-    </div>
+    </dialog>
 
-    <script>
-        let currentFbUrl = '';
-
-        // ฟังก์ชันตรวจสอบว่าเป็นอุปกรณ์มือถือ/แท็บเล็ตหรือไม่
-        function isMobileDevice() {
-            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
-        }
-
-        // ฟังก์ชันแปลงข้อความป้องกัน XSS Injection
-        function escapeHTML(str) {
-            if (!str) return '';
-            return String(str)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-
-        // ฟังก์ชันสร้างปุ่มลิงก์ภายนอกทั่วไป
-        function renderLinkButton(url, label, btnClass) {
-            if (!url) return '';
-            return `
-                <a href="${encodeURI(url)}" target="_blank" rel="noopener noreferrer" 
-                   class="w-full text-center py-2.5 px-4 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${btnClass}">
-                    <span>${escapeHTML(label)}</span>
-                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                </a>
-            `;
-        }
-
-        // จัดการคลิกปุ่ม "อ่านแปลไทย"
-        function handleThaiReadClick(event, targetUrl) {
-            const isFacebook = targetUrl.includes('facebook.com') || targetUrl.includes('fb.watch') || targetUrl.includes('fb.me');
-
-            // หากเป็นลิงก์ Facebook และเปิดผ่านมือถือ ให้เด้ง Modal เตือน
-            if (isFacebook && isMobileDevice()) {
-                event.preventDefault(); // ระงับการเปิดลิงก์ทันที
-                openFbModal(targetUrl);
-            }
-            // หากเป็น PC หรือไม่ใช่ลิงก์ Facebook จะปล่อยให้แท็ก <a> ทำงานเปิดแท็บใหม่ปกติ
-        }
-
-        // จัดการ Facebook Modal Functions
-        function openFbModal(url) {
-            currentFbUrl = url;
-            const btnProceed = document.getElementById('btnProceedFb');
-            if (btnProceed) btnProceed.href = url;
-            
-            const copyText = document.getElementById('fbCopyBtnText');
-            if (copyText) copyText.textContent = 'คัดลอกลิงก์';
-
-            const modal = document.getElementById('fbWarningModal');
-            if (modal) modal.classList.remove('hidden');
-        }
-
-        function closeFbModal() {
-            const modal = document.getElementById('fbWarningModal');
-            if (modal) modal.classList.add('hidden');
-        }
-
-        function copyCurrentFbUrl() {
-            if (!currentFbUrl) return;
-
-            navigator.clipboard.writeText(currentFbUrl).then(() => {
-                const copyText = document.getElementById('fbCopyBtnText');
-                if (copyText) {
-                    copyText.textContent = 'คัดลอกแล้ว!';
-                    setTimeout(() => { copyText.textContent = 'คัดลอกลิงก์'; }, 2000);
-                }
-            }).catch(err => {
-                console.error('คัดลอกลิงก์ไม่สำเร็จ:', err);
-            });
-        }
-
-        // ฟังก์ชันดึงและ Render รายการตอนสดจากเว็บนอก
-        async function loadChapters(targetUrl) {
-            const listContainer = document.getElementById('chapterList');
-            if (!listContainer) return;
-
-            if (!targetUrl || targetUrl === 'undefined' || targetUrl === 'null') {
-                listContainer.innerHTML = `<div class="text-center py-4 text-amber-400">ยังไม่มีลิงก์ต้นทางสำหรับดึงรายการตอน</div>`;
-                return;
-            }
-
-            listContainer.innerHTML = `<div class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i>กำลังดึงข้อมูลตอนล่าสุด...</div>`;
-
-            try {
-                const res = await fetch(`/api/scrape-chapters?targetUrl=${encodeURIComponent(targetUrl)}`);
-                const data = await res.json();
-
-                if (!data.success || !data.chapters || data.chapters.length === 0) {
-                    listContainer.innerHTML = `<div class="text-center py-6 text-rose-400">ไม่พบรายการตอน หรือเว็บต้นทางป้องกันการดึงข้อมูล</div>`;
-                    return;
-                }
-
-                const baseUrl = new URL(targetUrl).origin;
-
-                listContainer.innerHTML = data.chapters.map(ch => {
-                    let fullUrl = ch.url;
-                    if (ch.url && !ch.url.startsWith('http://') && !ch.url.startsWith('https://')) {
-                        fullUrl = `${baseUrl}${ch.url.startsWith('/') ? '' : '/'}${ch.url}`;
-                    }
-
-                    return `
-                        <a href="${encodeURI(fullUrl)}" 
-                           target="_blank" 
-                           rel="noopener noreferrer" 
-                           class="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 hover:bg-slate-800 border border-slate-800/80 hover:border-indigo-500/50 text-slate-300 hover:text-white transition-all group">
-                            <span class="text-sm font-medium group-hover:translate-x-1 transition-transform">${escapeHTML(ch.title)}</span>
-                            <span class="text-xs text-slate-500 group-hover:text-indigo-400 flex items-center gap-1">
-                                อ่านบนเว็บหลัก <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                            </span>
-                        </a>
-                    `;
-                }).join('');
-
-            } catch (err) {
-                console.error(err);
-                listContainer.innerHTML = `<div class="text-center py-6 text-rose-400">เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์</div>`;
-            }
-        }
-
-        // ฟังก์ชัน Render หน้าเนื้อหาหลัก
-        function renderPage(m) {
-            const container = document.getElementById('content');
-            container.classList.remove('animate-pulse', 'space-y-8');
-
-            // เลือกลิงก์แปลไทยเป็นหลัก หากไม่มีใช้ facebook_post_url แทน
-            const thaiReadUrl = m.thai_url || m.facebook_post_url || '';
-            const sourceUrl = m.thai_url || m.eng_url || m.original_url || '';
-
-            container.innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <!-- Left Sidebar: Cover & Quick Links -->
-                    <div class="flex flex-col gap-4">
-                        <div class="relative aspect-[2/3] w-full rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900">
-                            <img src="${encodeURI(m.cover || 'https://placehold.co/400x600?text=No+Cover')}" 
-                                alt="${escapeHTML(m.title)}" 
-                                class="w-full h-full object-cover">
-                        </div>
-                        
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-2.5 shadow-lg">
-                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">ลิงก์อ่านแปลไทย / ต้นฉบับ</h3>
-                            
-                            <!-- ปุ่มอ่านแปลไทย (ซ่อนปุ่ม FB ไปรวมเข้ากับปุ่มนี้) -->
-                            ${thaiReadUrl ? `
-                                <a href="${encodeURI(thaiReadUrl)}" 
-                                   target="_blank" 
-                                   rel="noopener noreferrer"
-                                   onclick="handleThaiReadClick(event, '${encodeURI(thaiReadUrl)}')"
-                                   class="w-full text-center py-2.5 px-4 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20">
-                                    <i class="fa-solid fa-book-open"></i>
-                                    <span>อ่านแปลไทย</span>
-                                </a>
-                            ` : ''}
-
-                            ${renderLinkButton(m.thai_url_Buy, 'ซื้อลิขสิทธิ์ไทย', 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/20')}
-                            
-                            <!-- ปุ่ม Eng Read -->
-                            ${m.eng_url ? `
-                                <a href="${encodeURI(m.eng_url)}" target="_blank" rel="noopener noreferrer"
-                                class="w-full text-center py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all duration-200 flex items-center justify-center gap-2">
-                                    <i class="fa-solid fa-book-open"></i>
-                                    <span>Eng Read</span>
-                                </a>
-                            ` : ''}
-
-                            ${renderLinkButton(m.eng_url_Buy, 'Buy Eng', 'bg-slate-800 hover:bg-slate-700 text-slate-200')}
-                            ${renderLinkButton(m.original_url, 'Original Raw', 'bg-slate-800 hover:bg-slate-700 text-slate-200')}
-                            ${renderLinkButton(m.original_url_Buy, 'Buy Original', 'bg-slate-800 hover:bg-slate-700 text-slate-200')}
-                        </div>
-                    </div>
-
-                    <!-- Right Content: Information & Chapters -->
-                    <div class="md:col-span-2 flex flex-col gap-6">
-                        <div>
-                            <h1 class="text-3xl font-extrabold text-white tracking-tight mb-2">${escapeHTML(m.th_name || m.title)}</h1>
-                            
-                            <div class="space-y-1 text-slate-400 text-sm font-medium">
-                                ${m.en_name ? `<p><span class="text-slate-500 text-xs">EN:</span> ${escapeHTML(m.en_name)}</p>` : ''}
-                                ${m.jp_name ? `<p><span class="text-slate-500 text-xs">JP (ต้นฉบับ):</span> ${escapeHTML(m.jp_name)}</p>` : ''}
-                            </div>
-                        </div>
-
-                        <!-- Tags & Rating -->
-                        <div class="flex flex-wrap items-center gap-2">
-                            ${m.rating ? `<span class="px-3 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400 font-bold"><i class="fa-solid fa-star text-xs mr-1"></i>${escapeHTML(m.rating)}</span>` : ''}
-                            ${(m.tags || []).map(t => `<span class="px-3 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs text-indigo-400 font-medium">${escapeHTML(t)}</span>`).join('')}
-                        </div>
-
-                        <!-- Description -->
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
-                            <h2 class="text-sm font-bold text-slate-300 uppercase tracking-wider mb-2">เรื่องย่อ</h2>
-                            <p class="text-slate-300 text-sm leading-relaxed whitespace-pre-line">${escapeHTML(m.description || 'ไม่มีข้อมูลเรื่องย่อ')}</p>
-                        </div>
-
-                        <!-- Credits Grid -->
-                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 text-xs shadow-inner">
-                            <div><span class="text-slate-500 block mb-0.5">ผู้แต่ง</span><span class="text-slate-200 font-medium">${escapeHTML(m.author || '-')}</span></div>
-                            <div><span class="text-slate-500 block mb-0.5">ผู้วาด</span><span class="text-slate-200 font-medium">${escapeHTML(m.artist || '-')}</span></div>
-                            <div>
-                                <span class="text-slate-500 block mb-0.5">ผู้แปล</span>
-                                ${m.translator_link 
-                                    ? `<a href="${encodeURI(m.translator_link)}" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:underline font-medium">${escapeHTML(m.translator || 'ลิงก์ค่ายแปล')}</a>`
-                                    : `<span class="text-slate-200 font-medium">${escapeHTML(m.translator || '-')}</span>`}
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-            `;
-
-            if (sourceUrl) {
-                loadChapters(sourceUrl);
-            }
-        }
-
-        // โหลดข้อมูลมังงะเมื่อเปิดหน้าเว็บ
-        async function fetchMangaDetail() {
-            const params = new URLSearchParams(window.location.search);
-            const id = params.get('id');
-
-            if (!id) {
-                document.getElementById('content').innerHTML = `<div class="text-center py-20 text-rose-400">ไม่พบ ID ของมังงะเรื่องนี้</div>`;
-                return;
-            }
-
-            try {
-                const res = await fetch(`/api/manga/${id}`);
-                if (!res.ok) throw new Error('Manga not found');
-
-                const manga = await res.json();
-                renderPage(manga);
-
-                const token = localStorage.getItem('token') || localStorage.getItem('adminToken');
-                if (token) {
-                    const adminActions = document.getElementById('adminActions');
-                    const editBtn = document.getElementById('editBtn');
-                    if (adminActions && editBtn) {
-                        adminActions.classList.remove('hidden');
-                        editBtn.onclick = () => window.location.href = `/admin?edit=${manga._id}`;
-                    }
-                }
-
-            } catch (err) {
-                console.error(err);
-                document.getElementById('content').innerHTML = `<div class="text-center py-20 text-rose-400">เกิดข้อผิดพลาดในการโหลดข้อมูลมังงะ</div>`;
-            }
-        }
-
-        fetchMangaDetail();
-    </script>
+    <script src="/assets/detail.js"></script>
 </body>
 </html>

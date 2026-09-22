@@ -1,80 +1,48 @@
 <!DOCTYPE html>
-<html lang="th" class="dark">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Manga Catalog</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { brand: { 500: '#6366f1', 600: '#4f46e5' } } } } }
-    </script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>เข้าสู่ระบบ — MangaCatalog</title>
+    <meta name="robots" content="noindex">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Mitr:wght@400;500&display=swap">
+    <link rel="stylesheet" href="/assets/site.css">
+    <script src="/assets/app.js"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+<body>
+    <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+    <header id="site-header"></header>
 
-    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-        <div class="text-center mb-8">
-            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-brand-500/20">
-                <i class="fa-solid fa-lock text-white text-xl"></i>
+    <main id="main">
+        <div class="narrow">
+            <div class="panel stack">
+                <div>
+                    <h1>เข้าสู่ระบบ</h1>
+                    <p class="muted small">เข้าสู่ระบบเพื่อบันทึกรายการโปรด หรือจัดการข้อมูลมังงะ</p>
+                </div>
+                <form id="login-form" class="stack" novalidate>
+                    <div class="field">
+                        <label for="username">ชื่อผู้ใช้</label>
+                        <input class="input" id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required>
+                    </div>
+                    <div class="field">
+                        <label for="password">รหัสผ่าน</label>
+                        <div class="pw">
+                            <input class="input" id="password" name="password" type="password" autocomplete="current-password" maxlength="128" required>
+                            <button type="button" id="pw-toggle" aria-label="แสดงรหัสผ่าน" aria-pressed="false"></button>
+                        </div>
+                    </div>
+                    <p id="form-error" class="form-error" role="alert"></p>
+                    <button class="btn btn-primary btn-block" id="submit" type="submit">เข้าสู่ระบบ</button>
+                </form>
             </div>
-            <h1 class="text-2xl font-bold text-white">เข้าสู่ระบบ</h1>
-            <p class="text-slate-400 text-xs mt-1">ยินดีต้อนรับกลับเข้าสู่ระบบจัดการมังงะ</p>
+            <p class="small muted mt"><a href="/">กลับหน้าหลัก</a></p>
         </div>
+    </main>
 
-        <form onsubmit="handleLogin(event)" class="space-y-4">
-            <div>
-                <label class="block text-xs font-semibold text-slate-400 mb-1.5">ชื่อผู้ใช้งาน</label>
-                <input type="text" id="username" required 
-                       class="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all">
-            </div>
-
-            <div>
-                <label class="block text-xs font-semibold text-slate-400 mb-1.5">รหัสผ่าน</label>
-                <input type="password" id="password" required 
-                       class="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all">
-            </div>
-
-            <button type="submit" id="submitBtn"
-                    class="w-full mt-2 bg-brand-600 hover:bg-brand-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-brand-500/25 text-sm flex items-center justify-center gap-2">
-                <span>เข้าสู่ระบบ</span>
-            </button>
-        </form>
-    </div>
-
-    <script>
-        async function handleLogin(e) {
-            e.preventDefault();
-            const btn = document.getElementById('submitBtn');
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-
-            btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> กำลังตรวจสอบ...`;
-
-            try {
-                const res = await fetch('/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const data = await res.json();
-
-                if (res.ok && data.success) {
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('adminToken', data.token); // เพื่อรองรับระบบเก่า
-                    localStorage.setItem('username', data.username);
-                    window.location.href = '/';
-                } else {
-                    alert(data.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-                }
-            } catch (err) {
-                alert('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = `<span>เข้าสู่ระบบ</span>`;
-            }
-        }
-    </script>
+    <footer id="site-footer"></footer>
+    <script src="/assets/login.js"></script>
 </body>
 </html>

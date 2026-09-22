@@ -1,54 +1,44 @@
 <!DOCTYPE html>
-<html lang="th" class="dark">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เกี่ยวกับเรา - MangaCatalog</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>เกี่ยวกับเรา — MangaCatalog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Mitr:wght@400;500&display=swap">
+    <link rel="stylesheet" href="/assets/site.css">
+    <script src="/assets/app.js"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
+<body>
+    <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+    <header id="site-header"></header>
 
-    <!-- Header Navbar -->
-    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
-        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-            <a href="/" class="flex items-center gap-2 text-white font-bold text-lg hover:text-indigo-400 transition-colors">
-                <i class="fa-solid fa-arrow-left text-sm"></i>
-                <span>กลับหน้าหลัก</span>
-            </a>
-            <span class="text-xs text-slate-400 font-semibold">เกี่ยวกับ MangaCatalog</span>
+    <main id="main" class="wrap">
+        <div class="page-h">
+            <h1>เกี่ยวกับ MangaCatalog</h1>
+            <p>ศูนย์รวมไดเรกทอรีมังงะ แปลไทย และต้นฉบับลิขสิทธิ์</p>
         </div>
-    </header>
 
-    <!-- Main Content -->
-    <main class="max-w-3xl mx-auto px-4 py-12">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
-            <div class="text-center space-y-2">
-                <div class="inline-flex p-4 rounded-2xl bg-indigo-600/10 text-indigo-400 mb-2">
-                    <i class="fa-solid fa-book-open text-3xl"></i>
-                </div>
-                <h1 class="text-2xl font-extrabold text-white">เกี่ยวกับ MangaCatalog</h1>
-                <p class="text-slate-400 text-sm">ศูนย์รวมไดเรกทอรีมังงะ แปลไทย และต้นฉบับลิขสิทธิ์</p>
-            </div>
+        <div class="prose">
+            <p>MangaCatalog จัดทำขึ้นเพื่อรวบรวมรายชื่อมังงะ เว็บตูน และนิยาย พร้อมลิงก์อ่านแปลไทย ลิงก์ต้นฉบับ และแหล่งซื้อลิขสิทธิ์อย่างเป็นทางการ เพื่อให้ผู้อ่านค้นหาผลงานที่ชื่นชอบได้ในที่เดียว</p>
 
-            <div class="border-t border-slate-800 pt-6 space-y-4 text-slate-300 text-sm leading-relaxed">
-                <p>
-                    <strong>MangaCatalog</strong> จัดทำขึ้นเพื่อเป็นคลังรวบรวมรายชื่อมังงะ เว็บตูน และนิยาย พร้อมทั้งรวบรวมลิงก์อ่านแปลไทย ลิงก์ต้นฉบับ และแหล่งซื้อลิขสิทธิ์อย่างเป็นทางการ เพื่ออำนวยความสะดวกให้ผู้อ่านสามารถค้นหาผลงานที่ชื่นชอบได้ในที่เดียว
-                </p>
-                
-                <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
-                    <h3 class="font-bold text-indigo-400 text-xs uppercase tracking-wider">นโยบายด้านลิขสิทธิ์ & การใช้งาน</h3>
-                    <ul class="list-disc list-inside space-y-1 text-xs text-slate-400">
-                        <li>เว็บไซต์นี้ทำหน้าที่เป็นเพียง Directory (Link Aggregator) ในการส่งทราฟฟิกไปยังเว็บผู้แปลและเจ้าของลิขสิทธิ์</li>
-                        <li>ไม่มีการโฮสต์ไฟล์ภาพหรือเนื้อหามังงะไว้บนเซิร์ฟเวอร์นี้แต่อย่างใด</li>
-                    </ul>
-                </div>
-            </div>
+            <section class="panel stack">
+                <h2>นโยบายด้านลิขสิทธิ์และการใช้งาน</h2>
+                <ul class="bullets">
+                    <li>เว็บไซต์นี้เป็นเพียงไดเรกทอรีลิงก์ (Link Aggregator) ที่ส่งผู้อ่านไปยังเว็บของผู้แปลและเจ้าของลิขสิทธิ์</li>
+                    <li>ไม่มีการโฮสต์ไฟล์ภาพหรือเนื้อหามังงะไว้บนเซิร์ฟเวอร์นี้</li>
+                </ul>
+            </section>
 
-            <div class="border-t border-slate-800 pt-6 text-center text-xs text-slate-500">
-                &copy; MangaCatalog - All Rights Reserved.
-            </div>
+            <section class="panel soft stack">
+                <h2>ติดต่อ / แจ้งลบลิงก์</h2>
+                <p>พบลิงก์เสีย ต้องการแจ้งลบ หรือมีข้อสงสัย ส่งอีเมลมาที่ <strong>elshinosawa4523@gmail.com</strong></p>
+            </section>
         </div>
+        
     </main>
+
+    <footer id="site-footer"></footer>
 </body>
 </html>

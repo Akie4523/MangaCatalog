@@ -1,17 +1,37 @@
+'use strict';
 require('dotenv').config();
+
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
 const path = require('path');
-const axios = require('axios');
-const cheerio = require('cheerio');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { URL } = require('url');
-
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 
 // ==========================================
-// 1. Discord Bot System
+// 0. Config (ต้องตั้งค่าใน Environment ก่อนรัน)
+// ==========================================
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+    console.error('❌ ต้องตั้ง JWT_SECRET (สุ่มอย่างน้อย 32 ตัวอักษร) ใน Environment ก่อนเริ่มเซิร์ฟเวอร์');
+    process.exit(1);
+}
+if (!process.env.MONGO_URI) {
+    console.error('❌ ไม่พบ MONGO_URI ใน Environment');
+    process.exit(1);
+}
+
+const IS_PROD = process.env.NODE_ENV === 'production';
+const COOKIE_NAME = 'mc_session';
+const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+
+// บัญชีที่เป็นแอดมิน (คั่นด้วยจุลภาค) เช่น ADMIN_USERNAMES=owner,editor
+const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '').split(',').map(s => s.trim()).filter(Boolean);
+
+// ==========================================
+// 1. Discord Bot System (เหมือนเดิม)
 // ==========================================
 const { Client, GatewayIntentBits } = require('discord.js');
 
@@ -34,7 +54,7 @@ client.on('messageCreate', async (message) => {
 
     if (TRAP_CHANNELS.includes(message.channel.id)) {
         console.log(`🚨 ตรวจพบคนหลงกลในห้อง ${message.channel.name}: ${message.author.tag}`);
-        
+
         try {
             const member = await message.guild.members.fetch(message.author.id);
             await member.timeout(24 * 60 * 60 * 1000, 'Security Trigger: Honey Pot');
@@ -68,21 +88,73 @@ if (TOKEN) {
 }
 
 // ==========================================
-// 2. Express App & Middleware
+// 2. Express App & Security Middleware
 // ==========================================
 const app = express();
+app.set('trust proxy', Number(process.env.TRUST_PROXY || 1)); // จำนวน proxy ที่อยู่หน้าเซิร์ฟเวอร์ (Render = 1)
+app.disable('x-powered-by');
 
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
-app.use(express.static(__dirname));
+app.use(helmet({
+    contentSecurityPolicy: {
+        useDefaults: false,
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],                                   // ห้าม inline script / CDN ภายนอก
+            styleSrc: ["'self'", 'https://fonts.googleapis.com'],
+            fontSrc: ['https://fonts.gstatic.com'],
+            imgSrc: ["'self'", 'data:', 'https:'],                   // ปกมังงะมาจากหลายเว็บ
+            connectSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"],
+            frameAncestors: ["'none'"],
+            ...(IS_PROD ? { upgradeInsecureRequests: [] } : {})
+        }
+    },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    crossOriginEmbedderPolicy: false
+}));
+
+app.use(express.json({ limit: '32kb' }));
+app.use(cookieParser());
+
+// กัน NoSQL injection ระดับ global (ค่า {"$gt":""} จากผู้ใช้จะถูกแปลงเป็นค่าธรรมดา)
+mongoose.set('sanitizeFilter', true);
+const trusted = mongoose.trusted || (x => x);
+
+// กัน CSRF: คำขอที่เปลี่ยนข้อมูลต้องมาจากเว็บเราเอง (เสริมจาก cookie SameSite=Strict)
+app.use((req, res, next) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+    const origin = req.get('origin');
+    if (origin) {
+        try {
+            if (new URL(origin).host !== req.get('host')) return res.status(403).json({ message: 'Forbidden' });
+        } catch (e) {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+    }
+    next();
+});
+
+// ไฟล์ static เปิดเฉพาะโฟลเดอร์ assets (เดิมเปิดทั้งโปรเจกต์ ทำให้โหลด server.js / .env ได้)
+app.use('/assets', express.static(path.join(__dirname, 'assets'), { index: false, dotfiles: 'ignore', maxAge: '1h' }));
+
+const makeLimiter = (windowMs, limit, message) => rateLimit({
+    windowMs, limit, standardHeaders: 'draft-7', legacyHeaders: false, message: { message }
+});
+const apiLimiter = makeLimiter(15 * 60 * 1000, 600, 'คำขอมากเกินไป กรุณาลองใหม่ภายหลัง');
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, limit: 10, skipSuccessfulRequests: true,
+    standardHeaders: 'draft-7', legacyHeaders: false,
+    message: { success: false, message: 'ลองเข้าสู่ระบบหลายครั้งเกินไป กรุณารอ 15 นาที' }
+});
+app.use('/api', apiLimiter);
+
+const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // ==========================================
-// 3. Database Connection & Schemas
+// 3. Database & Schemas
 // ==========================================
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ Connected to MongoDB"))
-    .catch(err => console.error("❌ MongoDB Error:", err));
-
 const Manga = mongoose.model('Manga', new mongoose.Schema({
     id: String,
     title: String,
@@ -98,522 +170,298 @@ const Manga = mongoose.model('Manga', new mongoose.Schema({
     translator: String,
     translator_link: String,
     thai_url: String,
-    thai_url_Buy: String, 
+    thai_url_Buy: String,
     eng_url: String,
     eng_url_Buy: String,
     original_url: String,
     original_url_Buy: String,
-    facebook_post_url: { type: String, default: "" },
+    facebook_post_url: { type: String, default: '' },
     updated_at: String
 }));
 
 const User = mongoose.model('User', new mongoose.Schema({
     username: { type: String, unique: true, required: true },
     password: { type: String, required: true },
-    favorites: [String]
+    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    favorites: { type: [String], default: [] }
 }));
 
-// Auth Middleware (ตรวจ JWT Token แทน SECRET_TOKEN แบบเดิม)
-const auth = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && (authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader);
-    
-    // ยอมรับ Fallback TOKEN เดิมชั่วคราวเผื่อระบบเก่ายังไม่เปลี่ยน
-    if (token === process.env.SECRET_TOKEN) return next();
+const BCRYPT_RE = /^\$2[aby]\$/;
+const DUMMY_HASH = bcrypt.hashSync('timing-attack-dummy', 12);
 
-    if (!token) return res.status(401).json({ message: "Unauthorized: กรุณาเข้าสู่ระบบ" });
-
-    jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key', (err, user) => {
-        if (err) return res.status(403).json({ message: "Forbidden: Token ไม่ถูกต้องหรือหมดอายุ" });
-        req.user = user;
-        next();
-    });
-};
-
-// ==========================================
-// 4. Scraper Config & Whitelist
-// ==========================================
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxlIEynv1arhgGRxg4t2VgxZ9zvpzJEuStUWHPHrE4m9qiWhuA8Kx4hC37I2oFh4dL7/exec";
-
-const isWhitelisted = (url) => {
-    try {
-        const domain = new URL(url).hostname;
-        const allowed = ['fluxtoon.com', 'mangaisekaithai.net', 'facebook.com', 'nekopost.net'];
-        return allowed.some(d => domain.includes(d));
-    } catch (e) { return false; }
-};
-
-// ==========================================
-// 5. API Routes
-// ==========================================
-app.get("/ping", (req, res) => res.status(200).send("OK"));
-
-// Login Route (รองรับทั้ง Bcrypt และ Plaintext เดิม)
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    if (typeof username !== 'string' || typeof password !== 'string') {
-        return res.status(400).json({ success: false, message: "ข้อมูลไม่ถูกต้อง" });
-    }
-
-    try {
-        const user = await User.findOne({ username });
-        if (!user) {
-            return res.status(401).json({ success: false, message: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });
+// รันตอนเริ่มระบบ: เข้ารหัสรหัสผ่านที่ยังเป็น plaintext + ตั้งสิทธิ์แอดมินตาม ADMIN_USERNAMES
+async function migrateUsers() {
+    const users = await User.find();
+    let hashed = 0;
+    for (const u of users) {
+        if (!BCRYPT_RE.test(u.password)) {
+            u.password = await bcrypt.hash(u.password, 12);
+            await u.save();
+            hashed++;
         }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        const isPlainMatch = user.password === password; // รองรับรหัสผ่านเดิมที่ยังไม่ได้ hash
-
-        if (!isMatch && !isPlainMatch) {
-            return res.status(401).json({ success: false, message: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });
-        }
-
-        const token = jwt.sign(
-            { id: user._id, username: user.username },
-            process.env.JWT_SECRET || 'fallback_secret_key',
-            { expiresIn: '7d' }
-        );
-
-        res.json({
-            success: true,
-            token: token,
-            username: user.username,
-            favorites: user.favorites
-        });
-    } catch (e) { 
-        res.status(500).json({ message: "Server Error: " + e.message }); 
     }
-});
+    if (hashed) console.log(`🔐 เข้ารหัสรหัสผ่านเดิม ${hashed} บัญชีแล้ว`);
 
-// Manga CRUD Routes
-app.get("/manga", async (req, res) => {
-    const mangas = await Manga.find().sort({ _id: -1 }); 
-    res.json(mangas);
-});
-
-app.get("/api/manga/:id", async (req, res) => {
-    try {
-        const { id } = req.params;
-        let manga = await Manga.findById(id).catch(() => null);
-        if (!manga) manga = await Manga.findOne({ id: id });
-        if (!manga) return res.status(404).json({ message: "ไม่พบมังงะ" });
-        res.json(manga);
-    } catch (err) { res.status(500).json({ message: "Error fetching manga" }); }
-});
-
-app.post("/add", auth, async (req, res) => {
-    try {
-        const mangaData = req.body;
-        if (!mangaData.id) mangaData.id = Date.now().toString();
-        const newManga = new Manga(mangaData);
-        await newManga.save();
-        res.json({ message: "เพิ่มสำเร็จ!" });
-    } catch (err) { res.status(500).json({ message: "ไม่สามารถเพิ่มข้อมูลได้", error: err.message }); }
-});
-
-app.delete("/delete/:id", auth, async (req, res) => {
-    try {
-        const { id } = req.params;
-        let result = await Manga.findByIdAndDelete(id).catch(() => null);
-        if (!result) result = await Manga.deleteOne({ id: id });
-        if (result.deletedCount === 0 && !result._id) return res.status(404).json({ message: "ไม่พบข้อมูลที่ต้องการลบ" });
-        res.json({ message: "ลบข้อมูลเรียบร้อยแล้ว!" });
-    } catch (err) { res.status(500).json({ message: "เกิดข้อผิดพลาดในการลบ" }); }
-});
-
-app.put('/api/manga/:id', auth, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const updatedData = req.body;
-        let result = await Manga.findByIdAndUpdate(id, updatedData, { new: true }).catch(() => null);
-        if (!result) result = await Manga.findOneAndUpdate({ id: id }, updatedData, { new: true });
-        if (!result) return res.status(404).json({ message: "ไม่พบมังงะที่ต้องการแก้ไข" });
-        res.status(200).json({ message: "อัปเดตเรียบร้อย!", data: result });
-    } catch (err) { res.status(500).json({ message: "เกิดข้อผิดพลาดในการอัปเดต" }); }
-});
-
-app.post("/favorite", auth, async (req, res) => {
-    const { username, mangaId } = req.body;
-    const user = await User.findOne({ username });
-    if (!user) return res.status(404).send("User not found");
-    const index = user.favorites.indexOf(mangaId);
-    if (index === -1) user.favorites.push(mangaId);
-    else user.favorites.splice(index, 1);
-    await user.save();
-    res.json({ success: true, favorites: user.favorites });
-});
-
-// Scraper Routes
-app.get('/api/fetch-chapters', async (req, res) => {
-    const { url } = req.query;
-    if (!isWhitelisted(url)) return res.status(403).json({ error: "Access Denied" });
-
-    try {
-        console.log(`📡 Fetching via GAS: ${url}`);
-        
-        const response = await axios.get(GAS_URL, {
-            params: { url: url },
-            timeout: 30000,
-            maxRedirects: 5
-        });
-
-        const html = response.data;
-
-        if (typeof html !== 'string' || html.startsWith("Error:")) {
-            console.error("⚠️ GAS Side Error:", html);
-            return res.json({ success: false, targetUrl: url, message: html });
-        }
-
-        const $ = cheerio.load(html);
-        const chapters = [];
-
-        $('.wp-manga-chapter a, .listing-chapters_wrap a').each((i, el) => {
-            const href = $(el).attr('href');
-            const text = $(el).text().trim();
-            if (href && text && /\d+/.test(text)) {
-                chapters.push({ title: text, url: href });
-            }
-        });
-
-        if (chapters.length === 0) {
-            $('a').each((i, el) => {
-                const href = $(el).attr('href') || "";
-                const text = $(el).text().trim();
-                if (href.includes('/chapter-') || href.includes('/ตอนที่-')) {
-                   chapters.push({ title: text || href.split('/').pop(), url: href });
-                }
-            });
-        }
-
-        const uniqueChapters = chapters.filter((v, i, a) => a.findIndex(t => t.url === v.url) === i);
-        console.log(`✅ ดึงสำเร็จ: ${uniqueChapters.length} ตอน`);
-        res.json({ success: true, chapters: uniqueChapters });
-
-    } catch (err) {
-        console.error("❌ Node Server Error:", err.message);
-        res.json({ success: false, targetUrl: url });
+    for (const name of ADMIN_USERNAMES) {
+        await User.updateOne({ username: name }, { $set: { role: 'admin' } });
     }
-});
-
-app.get('/api/fetch-images', async (req, res) => {
-    const { url } = req.query;
-    if (!isWhitelisted(url)) return res.status(403).json({ error: "Access Denied" });
-
-    try {
-        console.log(`📡 Fetching Images via GAS: ${url}`);
-        const response = await axios.get(`${GAS_URL}?url=${encodeURIComponent(url)}`);
-        const html = response.data;
-
-        const $ = cheerio.load(html);
-        const images = [];
-
-        $('.reading-content img, #readerarea img, .page-break img, .wp-manga-chapter-img').each((i, el) => {
-            const src = $(el).attr('data-src') || $(el).attr('data-lazy-src') || $(el).attr('src');
-            if (src && src.startsWith('http')) {
-                images.push(src.trim());
-            }
-        });
-
-        console.log(`✅ ดึงรูปสำเร็จ: ${images.length} รูป`);
-        res.json({ success: true, images });
-    } catch (err) {
-        console.error("❌ Image Fetch Error:", err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ==========================================
-// 6. Helper Functions & Scraper API Routes
-// ==========================================
-
-// ฟังก์ชันดึงเลขตอนและชื่อตอนอย่างแม่นยำ (แก้ปัญหาจับโดนปี 2025/2026)
-function extractChapterData($, el, baseUrl, chapters) {
-    const $el = $(el);
-    let href = $el.attr('href');
-    if (!href || href === '#' || href.startsWith('javascript:')) return;
-
-    try { href = new URL(href, baseUrl).href; } catch (e) { return; }
-
-    let rawText = $el.text().replace(/\s+/g, ' ').trim();
-    if (!rawText) rawText = $el.find('span, p, div').first().text().replace(/\s+/g, ' ').trim();
-
-    // 1. ตัดเลขปี ค.ศ./พ.ศ. ออกจากข้อความเพื่อไม่ให้สับสน
-    let cleanText = rawText.replace(/\b(19|20)\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\b/g, '')
-                           .replace(/\b\d{1,2}[-/.]\d{1,2}[-/.](19|20)\d{2}\b/g, '');
-
-    // 2. จับเลขตอน (ไทย / อังกฤษ / ญี่ปุ่น)
-    let chapterNo = null;
-    const match = cleanText.match(/(?:ตอนที่|ตอน|ch|chapter|ep|episode|\#|第)\s*([\d\.]+)/i) || 
-                  cleanText.match(/([\d\.]+)\s*(?:話|ตอน)/i);
-
-    if (match) {
-        chapterNo = parseFloat(match[1]);
-    } else {
-        const urlMatch = href.match(/(?:chapter|ep|episode|ตอน|content|project)[^\d]*([\d\.]+)/i);
-        if (urlMatch) chapterNo = parseFloat(urlMatch[1]);
-    }
-
-    if (rawText && rawText.length < 120 && !chapters.some(c => c.url === href)) {
-        chapters.push({
-            title: rawText,
-            url: href,
-            chapterNo: chapterNo !== null && !isNaN(chapterNo) ? chapterNo : 0
-        });
-    }
+    const admins = await User.countDocuments({ role: 'admin' });
+    if (admins === 0) console.warn('⚠️ ยังไม่มีแอดมินเลย — ตั้ง ADMIN_USERNAMES ใน Environment แล้วรีสตาร์ท');
 }
 
-// Scraper API Main Endpoint
-app.get('/api/scrape-chapters', async (req, res) => {
-    const { targetUrl } = req.query;
-    if (!targetUrl) return res.status(400).json({ success: false, error: 'กรุณาระบุ targetUrl' });
+mongoose.connect(process.env.MONGO_URI)
+    .then(async () => {
+        console.log('✅ Connected to MongoDB');
+        await migrateUsers();
+    })
+    .catch(err => console.error('❌ MongoDB Error:', err.message));
 
+// ==========================================
+// 4. Auth (JWT ใน httpOnly cookie + ตรวจสิทธิ์จากฐานข้อมูลทุกครั้ง)
+// ==========================================
+async function loadUser(req, res, next) {
+    req.user = null;
+    const token = req.cookies && req.cookies[COOKIE_NAME];
+    if (token) {
+        try {
+            const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+            const user = await User.findById(payload.id).select('username role favorites');
+            if (user) req.user = user;
+        } catch (e) { /* token ไม่ถูกต้อง/หมดอายุ = ถือว่าไม่ได้ล็อกอิน */ }
+    }
+    next();
+}
+
+const requireAuth = [loadUser, (req, res, next) => {
+    if (!req.user) return res.status(401).json({ message: 'กรุณาเข้าสู่ระบบ' });
+    next();
+}];
+
+const requireAdmin = [loadUser, (req, res, next) => {
+    if (!req.user) return res.status(401).json({ message: 'กรุณาเข้าสู่ระบบ' });
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'บัญชีนี้ไม่มีสิทธิ์จัดการข้อมูล' });
+    next();
+}];
+
+const cookieOptions = (req) => ({ httpOnly: true, sameSite: 'strict', secure: req.secure, path: '/' });
+
+// ==========================================
+// 5. Helpers: validation & SSRF protection
+// ==========================================
+function parseHttpUrl(value) {
     try {
-        let chapters = [];
+        const u = new URL(String(value));
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+        if (u.username || u.password) return null;
+        return u;
+    } catch (e) { return null; }
+}
 
-        // --- A. กรณี Nekopost ---
-        if (targetUrl.includes('nekopost.net')) {
-            const match = targetUrl.match(/(?:project|manga)\/(\d+)/);
-            if (match) {
-                const projectId = match[1];
-                try {
-                    const apiRes = await axios.get(`https://www.nekopost.net/api/project/get/${projectId}`, {
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-                            'Referer': 'https://www.nekopost.net/',
-                            'Origin': 'https://www.nekopost.net',
-                            'Accept': 'application/json, text/plain, */*'
-                        },
-                        timeout: 10000
-                    });
+const isObjectId = (id) => typeof id === 'string' && /^[a-f\d]{24}$/i.test(id);
 
-                    const rawData = apiRes.data;
-                    const chapterList = rawData?.listChapter || rawData?.data?.listChapter || rawData?.chapterList || [];
-
-                    if (Array.isArray(chapterList) && chapterList.length > 0) {
-                        chapters = chapterList.map(item => {
-                            const rawNo = item.cd || item.lc || item.chapterNo || item.chapterName || item.no || '0';
-                            const chapterId = item.chapterId || item.cid || item.id;
-                            return {
-                                title: `ตอนที่ ${rawNo}`,
-                                url: `https://www.nekopost.net/manga/${projectId}/${chapterId}`,
-                                chapterNo: parseFloat(rawNo) || 0
-                            };
-                        });
-                    }
-                } catch (apiErr) {
-                    // Fallback เมื่อ API หลักของ Nekopost ไม่ตอบสนอง
-                    try {
-                        const cdnRes = await axios.get(`https://info.nekopost.net/api/project/${projectId}`, {
-                            headers: { 'User-Agent': 'Mozilla/5.0' }
-                        });
-                        const chapterList = cdnRes.data?.listChapter || [];
-                        chapters = chapterList.map(item => ({
-                            title: `ตอนที่ ${item.cd || item.chapterNo}`,
-                            url: `https://www.nekopost.net/manga/${projectId}/${item.chapterId}`,
-                            chapterNo: parseFloat(item.cd || item.chapterNo) || 0
-                        }));
-                    } catch (e) {}
-                }
-            }
-        } 
-        // --- B. กรณีเว็บทั่วไป + เว็บ Next.js/Toonary ---
-        else {
-            const response = await axios.get(targetUrl, {
-                headers: { 
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-                },
-                timeout: 12000
-            });
-
-            const $ = cheerio.load(response.data);
-            const baseUrl = new URL(targetUrl).origin;
-
-            // 1. ดึงตอนจาก Next.js Script Tag (สำหรับเว็บ Toonary หรือเว็บ React)
-            const nextDataScript = $('#__NEXT_DATA__').html();
-            if (nextDataScript) {
-                try {
-                    const parsed = JSON.parse(nextDataScript);
-                    const pageProps = parsed.props?.pageProps;
-                    const rawChapters = pageProps?.chapters || pageProps?.manga?.chapters || pageProps?.data?.chapters || pageProps?.initialState?.chapters;
-
-                    if (Array.isArray(rawChapters)) {
-                        rawChapters.forEach(ch => {
-                            const chNum = ch.chapter_number || ch.number || ch.no || ch.chapterNo;
-                            const chSlug = ch.slug || ch.id;
-                            if (chSlug) {
-                                chapters.push({
-                                    title: `ตอนที่ ${chNum}`,
-                                    url: `${baseUrl}/content/${chSlug}`,
-                                    chapterNo: parseFloat(chNum) || 0
-                                });
-                            }
-                        });
-                    }
-                } catch (e) {}
-            }
-
-            // 2. ถ้าดึงจาก Next.js ไม่ได้ ให้ดึงผ่านแท็ก <a> ทั่วไป
-            if (chapters.length === 0) {
-                const selectors = [
-                    '.wp-manga-chapter a', '.eplister ul li a', '.cl-item a',
-                    '#chapterlist a', '.chapter-list a', '.listing-chapters_wrap a',
-                    'a[class*="chapter"]', 'a[class*="episode"]'
-                ];
-
-                $(selectors.join(', ')).each((i, el) => {
-                    extractChapterData($, el, baseUrl, chapters);
-                });
-
-                // Fallback สุดท้ายถ้าจับ Selector ไม่เจอ
-                if (chapters.length === 0) {
-                    $('a').each((i, el) => {
-                        extractChapterData($, el, baseUrl, chapters);
-                    });
-                }
-            }
-        }
-
-        // เรียงลำดับตอนจาก น้อยไปมาก (ตอนที่ 1 -> ตอนล่าสุด)
-        chapters.sort((a, b) => a.chapterNo - b.chapterNo);
-
-        // จัดฟอร์แมตชื่อตอนให้สะอาดสวยงาม
-        const formattedChapters = chapters.map((c, index) => ({
-            title: c.chapterNo > 0 ? `ตอนที่ ${c.chapterNo}` : (c.title || `ตอนที่ ${index + 1}`),
-            url: c.url
-        }));
-
-        return res.json({
-            success: true,
-            count: formattedChapters.length,
-            chapters: formattedChapters
-        });
-
-    } catch (err) {
-        console.error('Scrape Error:', err.message);
-        return res.status(500).json({
-            success: false,
-            error: 'ไม่สามารถดึงข้อมูลตอนได้',
-            details: err.message
-        });
+async function findMangaDoc(id) {
+    if (typeof id !== 'string' || !id || id.length > 64) return null;
+    if (isObjectId(id)) {
+        const byId = await Manga.findById(id);
+        if (byId) return byId;
     }
+    return Manga.findOne({ id });
+}
+
+const STR_FIELDS = {
+    title: 200, th_name: 200, en_name: 200, jp_name: 200, description: 5000,
+    rating: 20, author: 200, artist: 200, translator: 200
+};
+const URL_FIELDS = [
+    'cover', 'translator_link', 'thai_url', 'thai_url_Buy', 'eng_url', 'eng_url_Buy',
+    'original_url', 'original_url_Buy', 'facebook_post_url'
+];
+
+// รับเฉพาะฟิลด์ที่กำหนด (กัน mass-assignment) และบังคับให้ลิงก์เป็น http/https เท่านั้น (กัน javascript: XSS)
+function cleanMangaInput(body) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return { error: 'ข้อมูลไม่ถูกต้อง' };
+    const out = {};
+
+    for (const [key, max] of Object.entries(STR_FIELDS)) {
+        const v = body[key];
+        if (v === undefined || v === null || v === '') { out[key] = ''; continue; }
+        if (typeof v !== 'string' || v.length > max) return { error: `ช่อง ${key} ไม่ถูกต้องหรือยาวเกินไป` };
+        out[key] = v.trim();
+    }
+
+    for (const key of URL_FIELDS) {
+        const v = body[key];
+        if (v === undefined || v === null || v === '') { out[key] = ''; continue; }
+        if (typeof v !== 'string' || v.length > 2048) return { error: `ลิงก์ ${key} ไม่ถูกต้อง` };
+        const u = parseHttpUrl(v.trim());
+        if (!u) return { error: `ลิงก์ ${key} ต้องขึ้นต้นด้วย http:// หรือ https://` };
+        out[key] = u.href;
+    }
+
+    const tags = body.tags === undefined ? [] : body.tags;
+    if (!Array.isArray(tags) || tags.length > 30 || tags.some(t => typeof t !== 'string' || t.length > 40)) {
+        return { error: 'แท็กไม่ถูกต้อง (สูงสุด 30 แท็ก แท็กละไม่เกิน 40 ตัวอักษร)' };
+    }
+    out.tags = [...new Set(tags.map(t => t.trim()).filter(Boolean))];
+
+    if (!out.th_name) return { error: 'กรุณากรอกชื่อภาษาไทย' };
+    out.title = out.title || out.th_name;
+    out.updated_at = new Date().toISOString();
+    return { data: out };
+}
+
+// ==========================================
+// 6. API Routes
+// ==========================================
+app.get('/ping', (req, res) => res.status(200).send('OK'));
+
+// --- Auth ---
+app.post('/login', loginLimiter, wrap(async (req, res) => {
+    const { username, password } = req.body || {};
+    if (typeof username !== 'string' || typeof password !== 'string' ||
+        !username || username.length > 64 || !password || password.length > 128) {
+        return res.status(400).json({ success: false, message: 'ข้อมูลไม่ถูกต้อง' });
+    }
+
+    const user = await User.findOne({ username });
+    // เทียบ hash เสมอ แม้ไม่พบผู้ใช้ เพื่อไม่ให้เดาชื่อบัญชีจากเวลาตอบสนอง
+    const ok = await bcrypt.compare(password, user ? user.password : DUMMY_HASH);
+    if (!user || !ok) {
+        return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+    }
+
+    const token = jwt.sign({ id: String(user._id) }, JWT_SECRET, { algorithm: 'HS256', expiresIn: '7d' });
+    res.cookie(COOKIE_NAME, token, { ...cookieOptions(req), maxAge: SESSION_MS });
+    res.json({ success: true, username: user.username, role: user.role });
+}));
+
+app.post('/api/logout', (req, res) => {
+    res.clearCookie(COOKIE_NAME, cookieOptions(req));
+    res.json({ success: true });
+});
+
+app.get('/api/me', loadUser, (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!req.user) return res.json({ loggedIn: false });
+    res.json({
+        loggedIn: true,
+        username: req.user.username,
+        role: req.user.role,
+        favorites: req.user.favorites || []
+    });
+});
+
+// --- Manga (อ่านได้ทุกคน / แก้ไขได้เฉพาะแอดมิน) ---
+const LIST_FIELDS = '_id id title th_name en_name jp_name cover author tags rating';
+
+app.get('/manga', wrap(async (req, res) => {
+    res.json(await Manga.find().select(LIST_FIELDS).sort({ _id: -1 }).lean());
+}));
+
+app.get('/api/manga/:id', wrap(async (req, res) => {
+    const manga = await findMangaDoc(req.params.id);
+    if (!manga) return res.status(404).json({ message: 'ไม่พบมังงะ' });
+    res.json(manga);
+}));
+
+app.post('/add', requireAdmin, wrap(async (req, res) => {
+    const { data, error } = cleanMangaInput(req.body);
+    if (error) return res.status(400).json({ message: error });
+    const manga = await Manga.create({ ...data, id: Date.now().toString() });
+    res.status(201).json({ message: 'เพิ่มสำเร็จ!', id: String(manga._id) });
+}));
+
+app.put('/api/manga/:id', requireAdmin, wrap(async (req, res) => {
+    const { data, error } = cleanMangaInput(req.body);
+    if (error) return res.status(400).json({ message: error });
+    const manga = await findMangaDoc(req.params.id);
+    if (!manga) return res.status(404).json({ message: 'ไม่พบมังงะที่ต้องการแก้ไข' });
+    Object.assign(manga, data);
+    await manga.save();
+    res.json({ message: 'อัปเดตเรียบร้อย!', data: manga });
+}));
+
+app.delete('/delete/:id', requireAdmin, wrap(async (req, res) => {
+    const manga = await findMangaDoc(req.params.id);
+    if (!manga) return res.status(404).json({ message: 'ไม่พบข้อมูลที่ต้องการลบ' });
+    await manga.deleteOne();
+    res.json({ message: 'ลบข้อมูลเรียบร้อยแล้ว!' });
+}));
+
+// --- Favorites (ผูกกับบัญชีที่ล็อกอินเท่านั้น ไม่รับ username จากผู้ใช้อีกต่อไป) ---
+app.get('/api/favorites', requireAuth, wrap(async (req, res) => {
+    const favs = req.user.favorites || [];
+    const objectIds = favs.filter(isObjectId);
+    const [byObjectId, byLegacyId] = await Promise.all([
+        Manga.find({ _id: trusted({ $in: objectIds }) }).select(LIST_FIELDS).lean(),
+        Manga.find({ id: trusted({ $in: favs }) }).select(LIST_FIELDS).lean()
+    ]);
+    const seen = new Set();
+    const list = [...byObjectId, ...byLegacyId].filter(m => !seen.has(String(m._id)) && seen.add(String(m._id)));
+    res.json(list);
+}));
+
+app.post('/favorite', requireAuth, wrap(async (req, res) => {
+    const { mangaId } = req.body || {};
+    if (typeof mangaId !== 'string' || !mangaId || mangaId.length > 64) {
+        return res.status(400).json({ message: 'ข้อมูลไม่ถูกต้อง' });
+    }
+    const manga = await findMangaDoc(mangaId);
+    if (!manga) return res.status(404).json({ message: 'ไม่พบมังงะ' });
+
+    // รองรับรายการโปรดเดิมที่เคยเก็บเป็น id แบบเก่า
+    const keys = [String(manga._id), manga.id].filter(Boolean);
+    const current = req.user.favorites || [];
+    const has = current.some(f => keys.includes(f));
+    if (!has && current.length >= 500) return res.status(400).json({ message: 'รายการโปรดเต็มแล้ว' });
+
+    const updated = await User.findByIdAndUpdate(
+        req.user._id,
+        has ? { $pull: { favorites: { $in: keys } } } : { $addToSet: { favorites: String(manga._id) } },
+        { new: true }
+    ).select('favorites');
+    res.json({ success: true, favorites: updated.favorites });
+}));
+
+// (ลบ /api/scrape-chapters, /api/fetch-chapters, /api/fetch-images, /api/proxy-reader ออกทั้งหมด:
+//  ฟีเจอร์ดึงรายการตอนถูกปิดใช้งานที่ฝั่งหน้าเว็บแล้ว จึงตัดโค้ด scraper/SSRF-guard ที่มีแต่ endpoint พวกนี้เรียกใช้ออกไปด้วย
+//  เพื่อลดขนาดเซิร์ฟเวอร์และพื้นที่เสี่ยง — ถ้าจะกลับมาทำ ต้องเขียนระบบดึงข้อมูล + whitelist โดเมนใหม่)
+
+// ==========================================
+// 7. Pages
+// ==========================================
+const PAGES = new Set(['index', 'admin', 'detail', 'favorites', 'login', 'about']);
+
+const sendPage = (page) => (req, res) => {
+    res.set('Cache-Control', 'no-cache');
+    res.sendFile(path.join(__dirname, `${page}.html`));
+};
+
+app.get('/', sendPage('index'));
+app.get('/:page', (req, res, next) => {
+    const page = req.params.page.replace(/\.html$/, '');
+    if (!PAGES.has(page)) return next();
+    sendPage(page)(req, res);
 });
 
 // ==========================================
-// Ad-Block / Clean Web Reader Proxy
+// 8. 404 / Error handling
 // ==========================================
-app.get('/api/proxy-reader', async (req, res) => {
-    const { url } = req.query;
-    if (!url) return res.status(400).json({ success: false, message: "กรุณาระบุ URL" });
-
-    try {
-        const response = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                'Accept-Language': 'th-TH,th;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Referer': new URL(url).origin
-            },
-            timeout: 15000
-        });
-
-        const $ = cheerio.load(response.data);
-        const baseUrl = new URL(url).origin;
-        let images = [];
-
-        // 1. ดึงจาก Next.js State (__NEXT_DATA__) แบบเจาะลึก
-        const nextDataScript = $('#__NEXT_DATA__').html();
-        if (nextDataScript) {
-            try {
-                const parsed = JSON.parse(nextDataScript);
-                
-                // ฟังก์ชันช่วยค้นหา array ของรูปภาพแบบ recursive
-                const findImagesRecursive = (obj) => {
-                    if (!obj || typeof obj !== 'object') return;
-                    
-                    for (const key in obj) {
-                        if (Array.isArray(obj[key]) && obj[key].length > 0) {
-                            const first = obj[key][0];
-                            if (typeof first === 'string' && (first.includes('http') || first.startsWith('/'))) {
-                                images = obj[key].map(img => new URL(img, baseUrl).href);
-                                return;
-                            } else if (first && typeof first === 'object' && (first.src || first.url)) {
-                                images = obj[key].map(img => new URL(img.src || img.url, baseUrl).href);
-                                return;
-                            }
-                        }
-                        if (typeof obj[key] === 'object') {
-                            findImagesRecursive(obj[key]);
-                            if (images.length > 0) return;
-                        }
-                    }
-                };
-
-                findImagesRecursive(parsed.props);
-            } catch (e) {
-                console.error("NextData Parse Error:", e.message);
-            }
-        }
-
-        // 2. ถ้า Next Data ไม่เจอ ให้ดึงผ่าน Image Selector HTML
-        if (images.length === 0) {
-            $('img').each((i, el) => {
-                const src = $(el).attr('data-src') || $(el).attr('data-lazy-src') || $(el).attr('src');
-                if (src) {
-                    const cleanSrc = src.trim();
-                    // กรองเอาเฉพาะรูปที่ไม่ใช่โลโก้ หรือรูปไอคอนทั่วไป
-                    if (!cleanSrc.includes('logo') && !cleanSrc.includes('avatar') && !cleanSrc.includes('banner')) {
-                        try {
-                            images.push(new URL(cleanSrc, baseUrl).href);
-                        } catch (e) {}
-                    }
-                }
-            });
-        }
-
-        // ตัดรูปซ้ำออก
-        images = [...new Set(images)];
-
-        if (images.length === 0) {
-            return res.status(404).json({ success: false, message: "ไม่พบรูปภาพในหน้านี้" });
-        }
-
-        return res.json({ success: true, images });
-
-    } catch (err) {
-        console.error("Proxy Reader Error:", err.message);
-        return res.status(500).json({ 
-            success: false, 
-            message: "ไม่สามารถดึงรูปภาพได้", 
-            error: err.message 
-        });
-    }
+app.use((req, res) => {
+    if (req.path.startsWith('/api/')) return res.status(404).json({ message: 'Not found' });
+    res.status(404).type('text').send('ไม่พบหน้านี้ (404)');
 });
 
-// ==========================================
-//  7. Serving Frontend (Protected Page Router)
-// ==========================================
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
-
-const ALLOWED_PAGES = ['index', 'admin', 'detail', 'favorites', 'login', 'about', 'chapters', 'reader'];
-
-app.get('/:page', (req, res) => {
-    let page = req.params.page.replace('.html', '');
-    
-    if (ALLOWED_PAGES.includes(page)) {
-        return res.sendFile(path.join(__dirname, `${page}.html`), (err) => {
-            if (err) res.status(404).send("ไม่พบหน้านี้ (404)");
-        });
+app.use((err, req, res, next) => {
+    if (res.headersSent) return next(err);
+    if (err.status === 400 || err.type === 'entity.parse.failed') {
+        return res.status(400).json({ message: 'ข้อมูลไม่ถูกต้อง' });
     }
-    
-    res.status(403).send("Access Denied");
+    console.error('❌', err.message); // ไม่ส่งรายละเอียดข้อผิดพลาดกลับไปให้ผู้ใช้
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดที่เซิร์ฟเวอร์' });
 });
 
+process.on('unhandledRejection', (reason) => console.error('Unhandled rejection:', reason));
 
-// ==========================================
-// 7. Start Server
-// ==========================================
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server is running on port ${PORT}`);
-});
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server is running on port ${PORT}`));
