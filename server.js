@@ -259,13 +259,17 @@ function parseHttpUrl(value) {
 
 const isObjectId = (id) => typeof id === 'string' && /^[a-f\d]{24}$/i.test(id);
 
+// ใช้ .lean() เสมอ: เอกสารเก่าบางรายการมีรูปแบบฟิลด์ไม่ตรงกับ schema ปัจจุบันเป๊ะๆ
+// (เช่น tags เคยเก็บเป็น string ธรรมดา) ซึ่งถ้าโหลดเป็น Mongoose Document เต็มรูปแบบ
+// (ไม่ใส่ .lean()) Mongoose จะ cast ทุกฟิลด์ทันทีและโยน CastError ทำให้แก้ไขเรื่องเก่าๆ ไม่ได้เลย
+// .lean() คืนค่าเป็น plain object ตรงๆ จาก MongoDB โดยไม่ผ่านการ cast จุดนี้ จึงโหลดได้เสมอ
 async function findMangaDoc(id) {
     if (typeof id !== 'string' || !id || id.length > 64) return null;
     if (isObjectId(id)) {
-        const byId = await Manga.findById(id);
+        const byId = await Manga.findById(id).lean();
         if (byId) return byId;
     }
-    return Manga.findOne({ id });
+    return Manga.findOne({ id }).lean();
 }
 
 const STR_FIELDS = {
@@ -376,15 +380,21 @@ app.put('/api/manga/:id', requireAdmin, wrap(async (req, res) => {
     if (error) return res.status(400).json({ message: error });
     const manga = await findMangaDoc(req.params.id);
     if (!manga) return res.status(404).json({ message: 'ไม่พบมังงะที่ต้องการแก้ไข' });
-    Object.assign(manga, data);
-    await manga.save();
-    res.json({ message: 'อัปเดตเรียบร้อย!', data: manga });
+
+    // อัปเดตแบบ atomic ด้วย findByIdAndUpdate แทนการโหลดทั้งเอกสารมา .save()
+    // เพราะการโหลดทั้งเอกสาร (hydrate) จะ cast ทุกฟิลด์รวมถึงฟิลด์เก่าที่ไม่ได้แก้ไขด้วย
+    // ถ้าเรื่องนั้นมีฟิลด์เก่าที่รูปแบบไม่ตรง schema ปัจจุบันจะ save ไม่ผ่านทั้งที่ข้อมูลใหม่ถูกต้องดี
+    // วิธีนี้ validate เฉพาะฟิลด์ที่กำลังแก้ไขจริงๆ เท่านั้น
+    const updated = await Manga.findByIdAndUpdate(
+        manga._id, { $set: data }, { new: true, runValidators: true, context: 'query' }
+    ).lean();
+    res.json({ message: 'อัปเดตเรียบร้อย!', data: updated });
 }));
 
 app.delete('/delete/:id', requireAdmin, wrap(async (req, res) => {
     const manga = await findMangaDoc(req.params.id);
     if (!manga) return res.status(404).json({ message: 'ไม่พบข้อมูลที่ต้องการลบ' });
-    await manga.deleteOne();
+    await Manga.deleteOne({ _id: manga._id });
     res.json({ message: 'ลบข้อมูลเรียบร้อยแล้ว!' });
 }));
 
@@ -456,6 +466,12 @@ app.use((err, req, res, next) => {
     if (res.headersSent) return next(err);
     if (err.status === 400 || err.type === 'entity.parse.failed') {
         return res.status(400).json({ message: 'ข้อมูลไม่ถูกต้อง' });
+    }
+    // ข้อมูลที่บันทึกไม่ผ่าน validation ของ Mongoose (เช่นเอกสารเก่าที่มีรูปแบบฟิลด์ไม่ตรง schema ปัจจุบัน)
+    // ส่งเหตุผลจริงกลับไป แทนข้อความกลางๆ เพื่อให้แก้ไขได้ตรงจุดแทนที่จะเจอ error ที่ไม่รู้สาเหตุ
+    if (err.name === 'ValidationError' || err.name === 'CastError' || err.name === 'VersionError') {
+        console.error('❌ Data error:', err.message);
+        return res.status(400).json({ message: 'บันทึกไม่สำเร็จ: ข้อมูลเดิมของเรื่องนี้มีรูปแบบไม่ตรงกับระบบปัจจุบัน (' + err.message + ')' });
     }
     console.error('❌', err.message); // ไม่ส่งรายละเอียดข้อผิดพลาดกลับไปให้ผู้ใช้
     res.status(500).json({ message: 'เกิดข้อผิดพลาดที่เซิร์ฟเวอร์' });

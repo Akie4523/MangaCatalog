@@ -13,7 +13,7 @@
     function render() {
         sub.textContent = list.length ? 'บันทึกไว้ ' + list.length + ' เรื่อง' : 'มังงะที่คุณกดหัวใจไว้จะมารวมอยู่ที่นี่';
         if (!list.length) return empty('ยังไม่มีรายการโปรด กดรูปหัวใจที่ปกมังงะเพื่อบันทึกเรื่องที่ชอบ', true);
-        shelf.innerHTML = list.map(function (m) { return MC.bookCard(m, true); }).join('');
+        shelf.innerHTML = list.map(function (m, i) { return MC.bookCard(m, true, i); }).join('');
     }
 
     shelf.addEventListener('click', function (e) {

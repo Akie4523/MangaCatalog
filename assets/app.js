@@ -112,12 +112,14 @@
         return f.indexOf(String(m._id)) !== -1 || (!!m.id && f.indexOf(String(m.id)) !== -1);
     }
 
-    function bookCard(m, faved) {
+    function bookCard(m, faved, index) {
         var id = m._id || m.id;
         var name = m.th_name || m.title || 'ไม่มีชื่อ';
         var cover = safeUrl(m.cover);
         var label = (faved ? 'เอาออกจากรายการโปรด: ' : 'เพิ่มในรายการโปรด: ') + name;
-        return '<article class="book">' +
+        // จำกัด delay ไว้ที่ 12 ใบแรก ไม่งั้นรายการยาวๆ จะรอ animation นานเกินไป
+        var delay = typeof index === 'number' ? Math.min(index, 11) * 35 : 0;
+        return '<article class="book" style="--d:' + delay + '">' +
             '<a class="book-link" href="/detail?id=' + encodeURIComponent(id) + '">' +
                 '<span class="cover">' + (cover ? '<img src="' + esc(cover) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">' : '') + '</span>' +
                 '<span class="book-title">' + esc(name) + '</span>' +
@@ -147,6 +149,11 @@
         var label = btn.getAttribute('aria-label') || '';
         var name = label.replace(/^[^:]*:\s*/, '');
         btn.setAttribute('aria-label', (on ? 'เอาออกจากรายการโปรด: ' : 'เพิ่มในรายการโปรด: ') + name);
+        if (on) {
+            btn.classList.remove('pulse');
+            void btn.offsetWidth; // รีสตาร์ท animation ได้แม้กดรัวๆ
+            btn.classList.add('pulse');
+        }
     }
 
     // ปกที่โหลดไม่ขึ้นให้แสดงข้อความแทนภาพเสีย

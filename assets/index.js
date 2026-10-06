@@ -61,7 +61,7 @@
             shelf.innerHTML = '<div class="empty"><p>ไม่พบมังงะที่ตรงกับคำค้น</p><button class="btn btn-sm" type="button" id="reset">ล้างตัวกรอง</button></div>';
             return;
         }
-        shelf.innerHTML = list.map(function (m) { return MC.bookCard(m, MC.isFav(user, m)); }).join('');
+        shelf.innerHTML = list.map(function (m, i) { return MC.bookCard(m, MC.isFav(user, m), i); }).join('');
     }
 
     // ---------- Events ----------

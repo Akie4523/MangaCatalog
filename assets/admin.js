@@ -103,18 +103,36 @@
     }
     MC.$('#reset').addEventListener('click', resetForm);
 
+    // แปลงค่าฟิลด์จากข้อมูลเดิมให้เป็น string เสมอ เผื่อเรื่องเก่าบางรายการเก็บเป็นชนิดอื่น (เช่น number)
+    function asText(v) {
+        if (v === null || v === undefined) return '';
+        return String(v);
+    }
+    // รองรับทั้งกรณี tags เป็น array ปกติ และกรณีเรื่องเก่าที่อาจเก็บเป็น string คั่นด้วยจุลภาคไว้
+    function tagsToText(v) {
+        if (Array.isArray(v)) return v.join(', ');
+        if (typeof v === 'string') return v;
+        return '';
+    }
+
     function startEdit(id) {
         return MC.api('/api/manga/' + encodeURIComponent(id)).then(function (r) {
-            if (!r.ok) return MC.toast(r.data.message || 'โหลดข้อมูลไม่สำเร็จ', 'error');
+            if (!r.ok) { MC.toast(r.data.message || 'โหลดข้อมูลไม่สำเร็จ', 'error'); return; }
             var d = r.data;
             resetForm();
             editId.value = d._id;
-            TEXT_FIELDS.forEach(function (f) { MC.$('#' + f).value = d[f] || (f === 'th_name' ? d.title : '') || ''; });
-            MC.$('#tags').value = (d.tags || []).join(', ');
-            MC.$('#form-title').textContent = 'แก้ไข: ' + (d.th_name || d.title);
+            TEXT_FIELDS.forEach(function (f) {
+                MC.$('#' + f).value = asText(d[f]) || (f === 'th_name' ? asText(d.title) : '');
+            });
+            MC.$('#tags').value = tagsToText(d.tags);
+            MC.$('#form-title').textContent = 'แก้ไข: ' + (d.th_name || d.title || 'เรื่องนี้');
             setCoverPreview();
             showTab('form');
             window.scrollTo({ top: 0 });
+        }).catch(function (err) {
+            // กันกรณีข้อมูลเดิมมีรูปแบบที่ไม่คาดคิดจนโค้ดด้านบน throw — ไม่ปล่อยให้เงียบจนดูเหมือนปุ่มไม่ทำงาน
+            console.error('startEdit failed:', err);
+            MC.toast('เกิดข้อผิดพลาดตอนโหลดข้อมูลเรื่องนี้ ลองใหม่อีกครั้ง หรือแจ้งผู้ดูแลระบบ', 'error');
         });
     }
 
