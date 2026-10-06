@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>จัดการมังงะ — MangaCatalog</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Mitr:wght@400;500&display=swap">
+    <link rel="stylesheet" href="/assets/site.css">
+    <script src="/assets/app.js"></script>
+</head>
+<body>
+    <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+    <header id="site-header"></header>
+
+    <main id="main" class="wrap">
+        <div class="page-h">
+            <h1>จัดการมังงะ</h1>
+            <p>เพิ่ม แก้ไข หรือลบข้อมูลมังงะในไดเรกทอรี</p>
+        </div>
+
+        <div id="denied" class="note hide" role="alert"></div>
+
+        <div id="app" class="hide">
+            <div class="tabs" role="tablist" aria-label="ส่วนจัดการ">
+                <button class="tab" id="tab-list" type="button" role="tab" aria-selected="true" aria-controls="panel-list">รายการทั้งหมด</button>
+                <button class="tab" id="tab-form" type="button" role="tab" aria-selected="false" aria-controls="panel-form">เพิ่ม / แก้ไข</button>
+            </div>
+
+            <section id="panel-list" role="tabpanel" aria-labelledby="tab-list">
+                <div class="search">
+                    <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                    <label class="sr" for="filter">ค้นหาในรายการ</label>
+                    <input id="filter" type="search" placeholder="ค้นหาชื่อเรื่อง" autocomplete="off">
+                </div>
+                <ul id="rows" class="rows"></ul>
+            </section>
+
+            <section id="panel-form" role="tabpanel" aria-labelledby="tab-form" class="hide">
+                <form id="manga-form" novalidate>
+                    <input type="hidden" id="editId">
+                    <h2 id="form-title" class="sr">เพิ่มมังงะใหม่</h2>
+
+                    <fieldset class="group">
+                        <legend>ชื่อเรื่อง</legend>
+                        <div class="grid-3">
+                            <div class="field"><label for="th_name">ชื่อภาษาไทย (จำเป็น)</label><input class="input" id="th_name" maxlength="200" required></div>
+                            <div class="field"><label for="en_name">ชื่อภาษาอังกฤษ</label><input class="input" id="en_name" maxlength="200"></div>
+                            <div class="field"><label for="jp_name">ชื่อต้นฉบับ (OG)</label><input class="input" id="jp_name" maxlength="200" placeholder="ญี่ปุ่น, เกาหลี, จีน ฯลฯ"></div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="group">
+                        <legend>หน้าปกและเรื่องย่อ</legend>
+                        <div class="stack">
+                            <div class="cover-row">
+                                <div class="cover-preview" id="cover-preview"></div>
+                                <div class="stack">
+                                    <div class="field">
+                                        <label for="cover">ลิงก์รูปปก (จำเป็น)</label>
+                                        <input class="input" id="cover" type="url" inputmode="url" placeholder="https://..." required>
+                                    </div>
+                                    <div class="field">
+                                        <label for="rating">คะแนน</label>
+                                        <input class="input" id="rating" maxlength="20" placeholder="เช่น 8.5/10">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="tags">แท็ก</label>
+                                <input class="input" id="tags" placeholder="Action, Fantasy, Romance">
+                                <span class="hint">คั่นแต่ละแท็กด้วยเครื่องหมายจุลภาค (,)</span>
+                            </div>
+                            <div class="field"><label for="description">เรื่องย่อ</label><textarea class="input" id="description" maxlength="5000"></textarea></div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="group">
+                        <legend>ทีมงาน</legend>
+                        <div class="grid-2">
+                            <div class="field"><label for="author">ผู้แต่ง</label><input class="input" id="author" maxlength="200"></div>
+                            <div class="field"><label for="artist">ผู้วาด</label><input class="input" id="artist" maxlength="200"></div>
+                            <div class="field"><label for="translator">ผู้แปล / ค่ายแปล</label><input class="input" id="translator" maxlength="200"></div>
+                            <div class="field"><label for="translator_link">ลิงก์ค่ายแปล</label><input class="input" id="translator_link" type="url" inputmode="url"></div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="group">
+                        <legend>ลิงก์อ่าน</legend>
+                        <div class="grid-2">
+                            <div class="field"><label for="thai_url">อ่านแปลไทย</label><input class="input" id="thai_url" type="url" inputmode="url"></div>
+                            <div class="field"><label for="eng_url">อ่านภาษาอังกฤษ</label><input class="input" id="eng_url" type="url" inputmode="url"></div>
+                            <div class="field"><label for="original_url">ต้นฉบับ (Raw)</label><input class="input" id="original_url" type="url" inputmode="url"></div>
+                            <div class="field"><label for="facebook_post_url">โพสต์ Facebook</label><input class="input" id="facebook_post_url" type="url" inputmode="url"></div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="group">
+                        <legend>ลิงก์ซื้อลิขสิทธิ์</legend>
+                        <div class="grid-3">
+                            <div class="field"><label for="thai_url_Buy">ฉบับไทย</label><input class="input" id="thai_url_Buy" type="url" inputmode="url"></div>
+                            <div class="field"><label for="eng_url_Buy">ฉบับอังกฤษ</label><input class="input" id="eng_url_Buy" type="url" inputmode="url"></div>
+                            <div class="field"><label for="original_url_Buy">ฉบับต้นฉบับ</label><input class="input" id="original_url_Buy" type="url" inputmode="url"></div>
+                        </div>
+                    </fieldset>
+
+                    <div class="form-actions">
+                        <button class="btn btn-primary" id="save" type="submit">บันทึกข้อมูล</button>
+                        <button class="btn" id="btn-reset" type="button">ล้างฟอร์ม</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <footer id="site-footer"></footer>
+
+    <dialog id="confirm" class="sheet" aria-labelledby="confirm-title">
+        <div class="stack">
+            <h2 id="confirm-title">ลบมังงะเรื่องนี้?</h2>
+            <p id="confirm-text" class="muted"></p>
+            <div class="sheet-actions">
+                <button class="btn btn-sm btn-ghost" id="confirm-cancel" type="button">ยกเลิก</button>
+                <button class="btn btn-sm btn-danger" id="confirm-ok" type="button">ลบถาวร</button>
+            </div>
+        </div>
+    </dialog>
+
+    <script src="/assets/admin.js"></script>
+</body>
+</html>

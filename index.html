@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MangaCatalog — รวมมังงะแปลไทย ต้นฉบับ และแหล่งซื้อลิขสิทธิ์</title>
+    <meta name="description" content="ไดเรกทอรีมังงะ เว็บตูน และนิยาย รวมลิงก์อ่านแปลไทย ต้นฉบับ และแหล่งซื้อลิขสิทธิ์อย่างเป็นทางการ">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Mitr:wght@400;500&display=swap">
+    <link rel="stylesheet" href="/assets/site.css">
+    <script src="/assets/app.js"></script>
+</head>
+<body>
+    <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+    <header id="site-header"></header>
+
+    <main id="main">
+        <section class="masthead">
+            <div class="wrap">
+                <h1>รวมลิงก์อ่านมังงะแปลไทย ต้นฉบับ และแหล่งซื้อลิขสิทธิ์ไว้ในที่เดียว</h1>
+                <p>เว็บนี้ไม่ได้โฮสต์ภาพมังงะ ทุกปุ่มจะพาไปยังเว็บของผู้แปลหรือเจ้าของลิขสิทธิ์โดยตรง</p>
+                <div class="search">
+                    <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                    <label class="sr" for="q">ค้นหามังงะ</label>
+                    <input id="q" type="search" placeholder="ค้นหาชื่อเรื่อง หรือผู้แต่ง" autocomplete="off">
+                </div>
+            </div>
+        </section>
+
+        <div class="wrap">
+            <div id="tags" class="chips" role="group" aria-label="กรองตามหมวด"></div>
+            <p id="count" class="count" aria-live="polite"></p>
+            <div id="shelf" class="shelf"></div>
+        </div>
+    </main>
+
+    <footer id="site-footer"></footer>
+
+    <dialog id="welcome" class="sheet" aria-labelledby="welcome-title">
+        <div class="stack">
+            <h2 id="welcome-title">ยินดีต้อนรับสู่ MangaCatalog</h2>
+            <p>เป็นศูนย์รวมไดเรกทอรีมังงะและเว็บตูน ที่รวบรวมลิงก์อ่านแปลไทย ต้นฉบับ และแหล่งซื้อลิขสิทธิ์อย่างเป็นทางการ ช่วยให้ค้นหาง่ายขึ้นในที่เดียว ไม่มีการโฮสต์ไฟล์ภาพบนเว็บนี้</p>
+            <p class="muted small">พบลิงก์เสีย ต้องการแจ้งลบ หรือติดต่อเจ้าของเว็บ ส่งอีเมลมาที่ <strong>elshinosawa4523@gmail.com</strong></p>
+            <div class="sheet-actions">
+                <a class="btn btn-sm" href="/about">อ่านรายละเอียดเพิ่มเติม</a>
+                <button class="btn btn-sm btn-primary" id="welcome-ok" type="button">เริ่มใช้งาน</button>
+            </div>
+        </div>
+    </dialog>
+
+    <script src="/assets/index.js"></script>
+</body>
+</html>

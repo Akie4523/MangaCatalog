@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>รายละเอียดมังงะ — MangaCatalog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Mitr:wght@400;500&display=swap">
+    <link rel="stylesheet" href="/assets/site.css">
+    <script src="/assets/app.js"></script>
+</head>
+<body>
+    <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+    <header id="site-header"></header>
+
+    <main id="main" class="wrap">
+        <div id="view" aria-live="polite">
+            <div class="detail">
+                <div class="detail-aside"><div class="sk"><div class="sk-cover"></div></div></div>
+                <div class="detail-main">
+                    <div class="sk"><div class="sk-line"></div><div class="sk-line short"></div></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer id="site-footer"></footer>
+
+    <dialog id="fb-dialog" class="sheet" aria-labelledby="fb-title">
+        <div class="stack">
+            <h2 id="fb-title">เปิดโพสต์ Facebook บนมือถือ</h2>
+            <p class="muted small">ถ้าลิงก์เปิดไม่ติดหรือค้างในแอป Facebook ให้ลอง:</p>
+            <ul class="bullets small">
+                <li>คัดลอกลิงก์ไปวางในเบราว์เซอร์ (Chrome / Safari)</li>
+                <li>เปิดเป็น <strong>เว็บเวอร์ชันเดสก์ท็อป</strong> แล้วเปลี่ยนมุมมองจาก "ตาราง" เป็น "โพสต์" จะอ่านตามลำดับได้ง่ายขึ้น</li>
+            </ul>
+            <div class="sheet-actions">
+                <button class="btn btn-sm btn-ghost" id="fb-cancel" type="button">ยกเลิก</button>
+                <button class="btn btn-sm" id="fb-copy" type="button"></button>
+                <a class="btn btn-sm btn-primary" id="fb-go" href="#" target="_blank" rel="noopener noreferrer">เปิดลิงก์ Facebook</a>
+            </div>
+        </div>
+    </dialog>
+
+    <script src="/assets/detail.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>เข้าสู่ระบบ — MangaCatalog</title>
+    <meta name="robots" content="noindex">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Mitr:wght@400;500&display=swap">
+    <link rel="stylesheet" href="/assets/site.css">
+    <script src="/assets/app.js"></script>
+</head>
+<body>
+    <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+    <header id="site-header"></header>
+
+    <main id="main">
+        <div class="narrow">
+            <div class="panel stack">
+                <div>
+                    <h1>เข้าสู่ระบบ</h1>
+                    <p class="muted small">เข้าสู่ระบบเพื่อบันทึกรายการโปรด หรือจัดการข้อมูลมังงะ</p>
+                </div>
+                <form id="login-form" class="stack" novalidate>
+                    <div class="field">
+                        <label for="username">ชื่อผู้ใช้</label>
+                        <input class="input" id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required>
+                    </div>
+                    <div class="field">
+                        <label for="password">รหัสผ่าน</label>
+                        <div class="pw">
+                            <input class="input" id="password" name="password" type="password" autocomplete="current-password" maxlength="128" required>
+                            <button type="button" id="pw-toggle" aria-label="แสดงรหัสผ่าน" aria-pressed="false"></button>
+                        </div>
+                    </div>
+                    <p id="form-error" class="form-error" role="alert"></p>
+                    <button class="btn btn-primary btn-block" id="submit" type="submit">เข้าสู่ระบบ</button>
+                </form>
+            </div>
+            <p class="small muted mt"><a href="/">กลับหน้าหลัก</a></p>
+        </div>
+    </main>
+
+    <footer id="site-footer"></footer>
+    <script src="/assets/login.js"></script>
+</body>
+</html>
