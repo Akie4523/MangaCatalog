@@ -16,6 +16,127 @@
     var saveBtn = MC.$('#save');
     var confirmDlg = MC.$('#confirm');
 
+    
+    // ---------- Facebook Chapter Links ----------
+    var chapterRows = MC.$('#chapter-rows');
+    var chapterBulk = MC.$('#chapter-bulk');
+
+    function addChapterRow(label, url) {
+        var row = document.createElement('div');
+        row.className = 'chapter-row';
+
+        var labelField = document.createElement('input');
+        labelField.type = 'text';
+        labelField.className = 'input';
+        labelField.placeholder = 'ชื่อตอน เช่น ตอนที่ 1';
+        labelField.maxLength = 100;
+        labelField.value = label || '';
+        labelField.setAttribute('aria-label', 'ชื่อตอน');
+        labelField.dataset.chapterLabel = '1';
+
+        var urlField = document.createElement('input');
+        urlField.type = 'url';
+        urlField.className = 'input';
+        urlField.placeholder = 'https://www.facebook.com/...';
+        urlField.value = url || '';
+        urlField.setAttribute('aria-label', 'ลิงก์ Facebook ของตอน');
+        urlField.dataset.chapterUrl = '1';
+
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-sm';
+        removeBtn.textContent = 'ลบตอน';
+        removeBtn.setAttribute('aria-label', 'ลบแถวตอนนี้');
+
+        row.append(labelField, urlField, removeBtn);
+        chapterRows.appendChild(row);
+    }
+
+    function renderChapterRows(chapters) {
+        chapterRows.replaceChildren();
+
+        if (Array.isArray(chapters)) {
+            chapters.forEach(function (chapter) {
+                if (chapter && typeof chapter === 'object') {
+                    addChapterRow(chapter.label, chapter.url);
+                }
+            });
+        }
+
+        if (!chapterRows.children.length) {
+            addChapterRow('', '');
+        }
+    }
+
+    function collectChapters() {
+        return Array.from(chapterRows.children).map(function (row) {
+            return {
+                label: row.querySelector('[data-chapter-label]').value.trim(),
+                url: row.querySelector('[data-chapter-url]').value.trim()
+            };
+        }).filter(function (chapter) {
+            return chapter.url !== '';
+        });
+    }
+
+    MC.$('#chapter-add').addEventListener('click', function () {
+        addChapterRow('', '');
+    });
+
+    chapterRows.addEventListener('click', function (e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+
+        btn.closest('.chapter-row').remove();
+
+        if (!chapterRows.children.length) {
+            addChapterRow('', '');
+        }
+    });
+
+    MC.$('#chapter-import').addEventListener('click', function () {
+        var lines = chapterBulk.value.split(/\r?\n/)
+            .map(function (line) { return line.trim(); })
+            .filter(Boolean);
+
+        var imported = [];
+        lines.forEach(function (line) {
+            var parts = line.split('|');
+            var label = '';
+            var url = line;
+
+            if (parts.length > 1) {
+                label = parts.shift().trim();
+                url = parts.join('|').trim();
+            }
+
+            if (!label) {
+                label = 'ตอนที่ ' + (collectChapters().length + imported.length + 1);
+            }
+
+            imported.push({ label: label, url: url });
+        });
+
+        if (!imported.length) {
+            MC.toast('กรุณาวางลิงก์ที่ต้องการนำเข้า', 'error');
+            return;
+        }
+
+        // ลบแถวว่าง แต่เก็บตอนที่กรอกไว้แล้ว
+        Array.from(chapterRows.children).forEach(function (row) {
+            var url = row.querySelector('[data-chapter-url]').value.trim();
+            if (!url) row.remove();
+        });
+
+        imported.forEach(function (chapter) {
+            addChapterRow(chapter.label, chapter.url);
+        });
+
+        chapterBulk.value = '';
+        MC.toast('นำเข้าลิงก์แล้ว ' + imported.length + ' รายการ');
+    });
+
+
     // ---------- Tabs ----------
     function showTab(name) {
         var isList = name === 'list';
@@ -96,11 +217,14 @@
     MC.$('#cover').addEventListener('input', MC.debounce(setCoverPreview, 300));
 
     function resetForm() {
-        HTMLFormElement.prototype.reset.call(form);
-        editId.value = '';
-        MC.$('#form-title').textContent = 'เพิ่มมังงะใหม่';
-        setCoverPreview();
-    }
+    HTMLFormElement.prototype.reset.call(form);
+    editId.value = '';
+    MC.$('#form-title').textContent = 'เพิ่มมังงะใหม่';
+    renderChapterRows([]);
+    chapterBulk.value = '';
+    setCoverPreview();
+}
+
     MC.$('#btn-reset').addEventListener('click', resetForm);
 
     // แปลงค่าฟิลด์จากข้อมูลเดิมให้เป็น string เสมอ เผื่อเรื่องเก่าบางรายการเก็บเป็นชนิดอื่น (เช่น number)
@@ -125,6 +249,7 @@
                 MC.$('#' + f).value = asText(d[f]) || (f === 'th_name' ? asText(d.title) : '');
             });
             MC.$('#tags').value = tagsToText(d.tags);
+            renderChapterRows(d.chapters);
             MC.$('#form-title').textContent = 'แก้ไข: ' + (d.th_name || d.title || 'เรื่องนี้');
             setCoverPreview();
             showTab('form');
@@ -137,25 +262,70 @@
     }
 
     form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        if (!form.reportValidity()) return;
+    e.preventDefault();
 
-        var payload = {};
-        TEXT_FIELDS.forEach(function (f) { payload[f] = MC.$('#' + f).value.trim(); });
-        payload.title = payload.th_name;
-        payload.tags = MC.$('#tags').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+    console.log('[DEBUG] submit event fired');
 
-        var id = editId.value;
-        saveBtn.disabled = true;
-        MC.api(id ? '/api/manga/' + encodeURIComponent(id) : '/add', { method: id ? 'PUT' : 'POST', body: payload }).then(function (r) {
-            saveBtn.disabled = false;
-            if (!r.ok) return MC.toast(r.data.message || 'บันทึกไม่สำเร็จ', 'error');
-            MC.toast(id ? 'อัปเดตข้อมูลแล้ว' : 'เพิ่มมังงะแล้ว');
-            resetForm();
-            showTab('list');
-            loadList();
-        });
+    if (!form.reportValidity()) {
+        console.warn('[DEBUG] Form validation failed');
+        MC.toast('มีข้อมูลบางช่องไม่ถูกต้อง กรุณาตรวจสอบ URL', 'error');
+        return;
+    }
+
+    var payload = {};
+
+    TEXT_FIELDS.forEach(function (f) {
+        payload[f] = MC.$('#' + f).value.trim();
     });
+
+    payload.title = payload.th_name;
+    payload.tags = MC.$('#tags').value
+        .split(',')
+        .map(function (t) { return t.trim(); })
+        .filter(Boolean);
+
+    payload.chapters = collectChapters();
+
+    // DEBUG: ตรวจสอบข้อมูลก่อนส่ง
+    console.log('[DEBUG] chapters:', payload.chapters);
+    console.log('[DEBUG] payload:', JSON.stringify(payload, null, 2));
+
+    var id = editId.value;
+    var url = id
+        ? '/api/manga/' + encodeURIComponent(id)
+        : '/add';
+
+    saveBtn.disabled = true;
+
+    MC.api(url, {
+        method: id ? 'PUT' : 'POST',
+        body: payload
+    })
+    .then(function (r) {
+        // DEBUG: ตรวจสอบผลตอบกลับจาก API
+        console.log('[DEBUG] API response:', r);
+
+        saveBtn.disabled = false;
+
+        if (!r.ok) {
+            MC.toast(
+                (r.data && r.data.message) || 'บันทึกไม่สำเร็จ',
+                'error'
+            );
+            return;
+        }
+
+        MC.toast(id ? 'อัปเดตข้อมูลแล้ว' : 'เพิ่มมังงะแล้ว');
+        resetForm();
+        showTab('list');
+        return loadList();
+    })
+    .catch(function (err) {
+        saveBtn.disabled = false;
+        console.error('[DEBUG] Save failed:', err);
+        MC.toast('เกิดข้อผิดพลาดระหว่างบันทึก กรุณาตรวจสอบ Console', 'error');
+    });
+});
 
     // ---------- Boot (ตรวจสิทธิ์จากเซิร์ฟเวอร์ ไม่ใช่แค่มี token) ----------
     MC.me().then(function (u) {

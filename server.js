@@ -115,7 +115,8 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false
 }));
 
-app.use(express.json({ limit: '32kb' }));
+// 256kb: พอรองรับการนำเข้าลิงก์ Facebook รายตอนเป็นชุดใหญ่ (สูงสุด 1000 ตอน/เรื่อง) โดยยังเล็กพอที่จะกัน DoS จาก body ขนาดใหญ่
+app.use(express.json({ limit: '256kb' }));
 app.use(cookieParser());
 
 // กัน NoSQL injection ระดับ global (ค่า {"$gt":""} จากผู้ใช้จะถูกแปลงเป็นค่าธรรมดา)
@@ -176,6 +177,11 @@ const Manga = mongoose.model('Manga', new mongoose.Schema({
     original_url: String,
     original_url_Buy: String,
     facebook_post_url: { type: String, default: '' },
+    // ลิงก์โพสต์ Facebook แยกรายตอน — สำหรับนักแปลที่ลงแต่ละตอนเป็นโพสต์เดี่ยวๆ โดยไม่ได้ทำอัลบั้มรวม
+    chapters: {
+        type: [{ _id: false, label: { type: String, default: '' }, url: { type: String, required: true } }],
+        default: []
+    },
     updated_at: String
 }));
 
@@ -307,6 +313,24 @@ function cleanMangaInput(body) {
         return { error: 'แท็กไม่ถูกต้อง (สูงสุด 30 แท็ก แท็กละไม่เกิน 40 ตัวอักษร)' };
     }
     out.tags = [...new Set(tags.map(t => t.trim()).filter(Boolean))];
+
+    // ลิงก์ Facebook รายตอน — แถวที่ไม่มี url ถูกข้าม (ผู้ใช้อาจเว้นแถวว่างไว้ระหว่างกรอก)
+    const rawChapters = body.chapters === undefined ? [] : body.chapters;
+    if (!Array.isArray(rawChapters) || rawChapters.length > 1000) {
+        return { error: 'รายการตอนไม่ถูกต้อง (สูงสุด 1000 ตอน)' };
+    }
+    const chapters = [];        
+    for (const ch of rawChapters) {
+        if (!ch || typeof ch !== 'object' || Array.isArray(ch)) return { error: 'ข้อมูลรายการตอนไม่ถูกต้อง' };
+        const rawUrl = typeof ch.url === 'string' ? ch.url.trim() : '';
+        if (!rawUrl) continue;
+        if (rawUrl.length > 2048) return { error: 'ลิงก์ตอนยาวเกินไป' };
+        const u = parseHttpUrl(rawUrl);
+        if (!u) return { error: 'ลิงก์ตอน "' + rawUrl.slice(0, 60) + '" ต้องขึ้นต้นด้วย http:// หรือ https://' };
+        const label = typeof ch.label === 'string' ? ch.label.trim().slice(0, 100) : '';
+        chapters.push({ label, url: u.href });
+    }
+    out.chapters = chapters;
 
     if (!out.th_name) return { error: 'กรุณากรอกชื่อภาษาไทย' };
     out.title = out.title || out.th_name;
@@ -440,7 +464,7 @@ app.post('/favorite', requireAuth, wrap(async (req, res) => {
 // ==========================================
 // 7. Pages
 // ==========================================
-const PAGES = new Set(['index', 'admin', 'detail', 'favorites', 'login', 'about']);
+const PAGES = new Set(['index', 'admin', 'detail', 'favorites', 'login', 'about', 'changelog']);
 
 const sendPage = (page) => (req, res) => {
     res.set('Cache-Control', 'no-cache');
@@ -464,6 +488,9 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
     if (res.headersSent) return next(err);
+    if (err.type === 'entity.too.large' || err.status === 413) {
+        return res.status(413).json({ message: 'ข้อมูลที่ส่งมาใหญ่เกินไป กรุณาแบ่งนำเข้ารายการตอนเป็นชุดย่อยกว่านี้' });
+    }
     if (err.status === 400 || err.type === 'entity.parse.failed') {
         return res.status(400).json({ message: 'ข้อมูลไม่ถูกต้อง' });
     }

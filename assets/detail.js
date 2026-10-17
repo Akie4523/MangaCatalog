@@ -25,6 +25,22 @@
             icon(ic) + '<span>' + esc(label) + '</span></a>';
     }
 
+    function renderChapters(chapters) {
+        if (!chapters || !chapters.length) return '';
+        var html = '<section id="chapters-section" class="panel mt" style="margin-top: 2rem;">' +
+                   '<div class="sec-h"><h2>รายชื่อตอน (Facebook)</h2></div>' +
+                   '<div class="chapter-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; margin-top: 1rem;">';
+        chapters.forEach(function (ch, index) {
+            var u = safeUrl(ch.url);
+            if (!u) return;
+            var label = ch.label ? ch.label : ('ตอนที่ ' + (index + 1));
+            html += '<a class="btn btn-sm" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer" data-fb>' +
+                icon('book') + '<span>' + esc(label) + '</span></a>';
+        });
+        html += '</div></section>';
+        return html;
+    }
+
     function favLabel(on) { return on ? 'อยู่ในรายการโปรดแล้ว' : 'บันทึกเป็นรายการโปรด'; }
 
     function render() {
@@ -37,9 +53,16 @@
             (m.thai_url && m.facebook_post_url ? linkBtn(m.facebook_post_url, 'ดูโพสต์ Facebook', '', 'external', true) : '') +
             linkBtn(m.eng_url, 'อ่านภาษาอังกฤษ', '', 'book') +
             linkBtn(m.original_url, 'ต้นฉบับ (Raw)', '', 'book');
+        
+        var hasChapters = m.chapters && m.chapters.length > 0;
+        // ปุ่มทางลัดเลื่อนลงไปดูรายชื่อตอน
+        var jumpChaptersBtn = hasChapters ? '<button class="btn btn-block btn-ghost mobile-only" id="jump-chapters" type="button">' + icon('book') + '<span>ไปยังรายชื่อตอน (' + m.chapters.length + ')</span></button>' : '';
+
         var buy = linkBtn(m.thai_url_Buy, 'ซื้อฉบับไทย', 'btn-buy', 'cart') +
             linkBtn(m.eng_url_Buy, 'ซื้อฉบับอังกฤษ', 'btn-buy', 'cart') +
             linkBtn(m.original_url_Buy, 'ซื้อฉบับต้นฉบับ', 'btn-buy', 'cart');
+
+        var chaptersHtml = renderChapters(m.chapters);
 
         var cover = safeUrl(m.cover);
         var faved = MC.isFav(user, m);
@@ -57,8 +80,9 @@
                     '<div class="cover">' + (cover ? '<img src="' + esc(cover) + '" alt="ปกเรื่อง ' + esc(name) + '" referrerpolicy="no-referrer">' : '') + '</div>' +
                     '<section class="panel" aria-label="ลิงก์อ่านและซื้อ">' +
                         (read ? '<div class="link-group"><h2>อ่านออนไลน์</h2>' + read + '</div>' : '') +
+                        jumpChaptersBtn +
                         (buy ? '<div class="link-group"><h2>ซื้อลิขสิทธิ์</h2>' + buy + '</div>' : '') +
-                        (!read && !buy ? '<p class="muted">ยังไม่มีลิงก์สำหรับเรื่องนี้</p>' : '') +
+                        (!read && !buy && !jumpChaptersBtn ? '<p class="muted">ยังไม่มีลิงก์สำหรับเรื่องนี้</p>' : '') +
                     '</section>' +
                 '</div>' +
                 '<div class="detail-main">' +
@@ -82,6 +106,7 @@
                         '<div><dt>ผู้วาด</dt><dd>' + esc(m.artist || '-') + '</dd></div>' +
                         '<div><dt>ผู้แปล / ค่ายแปล</dt><dd>' + translator + '</dd></div>' +
                     '</dl>' +
+                    chaptersHtml +
                 '</div>' +
             '</div>';
     }
@@ -94,6 +119,17 @@
 
     document.addEventListener('click', function (e) {
         var t = e.target;
+        
+        // ปุ่มเลื่อนจอไปที่รายชื่อตอน
+        var jumpBtn = t.closest('#jump-chapters');
+        if (jumpBtn) {
+            var targetSec = MC.$('#chapters-section');
+            if (targetSec) {
+                targetSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            return;
+        }
+
         var fb = t.closest('a[data-fb]');
         if (fb && isMobile() && typeof fbDlg.showModal === 'function') {
             e.preventDefault();
@@ -133,7 +169,8 @@
         message('ไม่พบรหัสของมังงะเรื่องนี้', 'error');
         return;
     }
-    Promise.all([MC.api('/api/manga/' + encodeURIComponent(id)), MC.me()]).then(function (res) {
+    Promise.all([MC.api('/api/manga/' + encodeURIComponent(id)), MC.me()]).then(theRes => {
+        var res = theRes;
         user = res[1];
         if (res[0].status === 404) return message('ไม่พบมังงะเรื่องนี้ อาจถูกลบไปแล้ว', 'error');
         if (!res[0].ok) return message('โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง', 'error');
