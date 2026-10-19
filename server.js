@@ -4,11 +4,15 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
+const crypto = require('crypto');
+const https = require('https');
+const querystring = require('querystring');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
+const nodemailer = require('nodemailer');
 
 // ==========================================
 // 0. Config (ต้องตั้งค่าใน Environment ก่อนรัน)
@@ -26,9 +30,79 @@ if (!process.env.MONGO_URI) {
 const IS_PROD = process.env.NODE_ENV === 'production';
 const COOKIE_NAME = 'mc_session';
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+const OAUTH_COOKIE = 'mc_oauth';
+const OAUTH_MS = 10 * 60 * 1000;
+const BCRYPT_COST = 12;
 
 // บัญชีที่เป็นแอดมิน (คั่นด้วยจุลภาค) เช่น ADMIN_USERNAMES=owner,editor
 const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '').split(',').map(s => s.trim()).filter(Boolean);
+
+// ----- สมัครด้วย Google (ไม่บังคับ) — ตั้ง GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET เพื่อเปิดใช้งาน -----
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+const GOOGLE_ENABLED = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+if (!GOOGLE_ENABLED) {
+    console.warn('⚠️ ยังไม่ได้ตั้งค่า GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET — ปุ่ม "เข้าสู่ระบบด้วย Google" จะถูกปิดใช้งาน');
+}
+
+// ----- ส่งอีเมล (ลืมรหัสผ่าน) ไม่บังคับ — ตั้ง SMTP_HOST/SMTP_USER/SMTP_PASS เพื่อเปิดใช้งาน -----
+let mailTransporter = null;
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    mailTransporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT || 587),
+        secure: Number(process.env.SMTP_PORT) === 465,
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+    });
+} else {
+    console.warn('⚠️ ยังไม่ได้ตั้งค่า SMTP_HOST/SMTP_USER/SMTP_PASS — ระบบ "ลืมรหัสผ่าน" จะส่งอีเมลไม่ได้ (จะพิมพ์ลิงก์ไว้ใน log แทน)');
+}
+async function sendResetEmail(to, resetUrl) {
+    if (!mailTransporter) {
+        console.warn('✉️  [DEV] ลิงก์รีเซ็ตรหัสผ่านสำหรับ ' + to + ': ' + resetUrl);
+        return;
+    }
+    await mailTransporter.sendMail({
+        from: process.env.MAIL_FROM || process.env.SMTP_USER,
+        to,
+        subject: 'รีเซ็ตรหัสผ่าน — MangaCatalog',
+        text: 'มีการขอตั้งรหัสผ่านใหม่สำหรับบัญชีนี้\n\nกดลิงก์นี้เพื่อตั้งรหัสผ่านใหม่ (ลิงก์หมดอายุใน 1 ชั่วโมง):\n' + resetUrl +
+            '\n\nถ้าคุณไม่ได้เป็นคนขอ ไม่ต้องทำอะไร — รหัสผ่านเดิมยังใช้งานได้ตามปกติ',
+        html: '<p>มีการขอตั้งรหัสผ่านใหม่สำหรับบัญชีนี้</p>' +
+            '<p><a href="' + resetUrl + '">กดที่นี่เพื่อตั้งรหัสผ่านใหม่</a> (ลิงก์หมดอายุใน 1 ชั่วโมง)</p>' +
+            '<p style="color:#777;font-size:.85em">ถ้าคุณไม่ได้เป็นคนขอ ไม่ต้องทำอะไร — รหัสผ่านเดิมยังใช้งานได้ตามปกติ</p>'
+    });
+}
+
+// ----- ช่วยเรียก Google token endpoint แบบ server-to-server (ไม่พึ่ง fetch เพื่อให้รันได้บน Node เวอร์ชันเก่า) -----
+function httpsPostForm(hostname, pathName, formObj) {
+    return new Promise((resolve, reject) => {
+        const body = querystring.stringify(formObj);
+        const req = https.request({
+            hostname, path: pathName, method: 'POST', timeout: 10000,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) }
+        }, (res) => {
+            let data = '';
+            res.on('data', (c) => { data += c; });
+            res.on('end', () => {
+                try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+                catch (e) { reject(new Error('การตอบกลับจาก Google ไม่ถูกต้อง')); }
+            });
+        });
+        req.on('timeout', () => req.destroy(new Error('Google token request timed out')));
+        req.on('error', reject);
+        req.write(body);
+        req.end();
+    });
+}
+
+// decode เฉพาะ payload ของ JWT (ไม่ verify ลายเซ็น) — ใช้ได้อย่างปลอดภัยเฉพาะตอนที่ id_token
+// มาจากการแลก code กับ Google token endpoint โดยตรงผ่าน HTTPS + client_secret เท่านั้น (ไม่ใช่รับจาก client)
+function decodeJwtPayloadUnsafe(token) {
+    const parts = String(token).split('.');
+    if (parts.length !== 3) throw new Error('bad token');
+    return JSON.parse(Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
+}
 
 // ==========================================
 // 1. Discord Bot System (เหมือนเดิม)
@@ -149,6 +223,23 @@ const loginLimiter = rateLimit({
     standardHeaders: 'draft-7', legacyHeaders: false,
     message: { success: false, message: 'ลองเข้าสู่ระบบหลายครั้งเกินไป กรุณารอ 15 นาที' }
 });
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false,
+    message: { success: false, message: 'สมัครสมาชิกบ่อยเกินไป กรุณารอ 1 ชั่วโมง' }
+});
+// จำกัดเข้มเป็นพิเศษ: endpoint นี้ส่งอีเมลออก ป้องกันไม่ให้ถูกใช้เป็นเครื่องมือสแปมผู้อื่น
+const forgotLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, limit: 4, standardHeaders: 'draft-7', legacyHeaders: false,
+    message: { success: false, message: 'ขอลิงก์รีเซ็ตรหัสผ่านบ่อยเกินไป กรุณารอ 15 นาที' }
+});
+const resetLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false,
+    message: { success: false, message: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที' }
+});
+const googleLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false,
+    message: { success: false, message: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที' }
+});
 app.use('/api', apiLimiter);
 
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -187,21 +278,31 @@ const Manga = mongoose.model('Manga', new mongoose.Schema({
 
 const User = mongoose.model('User', new mongoose.Schema({
     username: { type: String, unique: true, required: true },
-    password: { type: String, required: true },
+    // ไม่บังคับอีกต่อไป: บัญชีที่สมัครผ่าน Google อย่างเดียวจะไม่มีรหัสผ่านจนกว่าจะตั้งเองผ่าน "ลืมรหัสผ่าน"
+    // select:false กันไม่ให้หลุดติดไปกับ query ทั่วไปโดยไม่ตั้งใจ ต้อง .select('+password') เท่านั้นตอน login
+    password: { type: String, select: false },
+    email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
+    googleId: { type: String, unique: true, sparse: true },
+    // นับเวอร์ชัน session — เพิ่มขึ้นทุกครั้งที่เปลี่ยน/รีเซ็ตรหัสผ่าน เพื่อให้ JWT เก่าที่หลุดออกไปใช้ต่อไม่ได้
+    tokenVersion: { type: Number, default: 0 },
+    resetTokenHash: { type: String, select: false },
+    resetTokenExpires: { type: Date, select: false },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     favorites: { type: [String], default: [] }
 }));
 
 const BCRYPT_RE = /^\$2[aby]\$/;
-const DUMMY_HASH = bcrypt.hashSync('timing-attack-dummy', 12);
+const DUMMY_HASH = bcrypt.hashSync('timing-attack-dummy', BCRYPT_COST);
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,32}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // รันตอนเริ่มระบบ: เข้ารหัสรหัสผ่านที่ยังเป็น plaintext + ตั้งสิทธิ์แอดมินตาม ADMIN_USERNAMES
 async function migrateUsers() {
-    const users = await User.find();
+    const users = await User.find().select('+password');
     let hashed = 0;
     for (const u of users) {
-        if (!BCRYPT_RE.test(u.password)) {
-            u.password = await bcrypt.hash(u.password, 12);
+        if (u.password && !BCRYPT_RE.test(u.password)) {
+            u.password = await bcrypt.hash(u.password, BCRYPT_COST);
             await u.save();
             hashed++;
         }
@@ -231,8 +332,9 @@ async function loadUser(req, res, next) {
     if (token) {
         try {
             const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
-            const user = await User.findById(payload.id).select('username role favorites');
-            if (user) req.user = user;
+            const user = await User.findById(payload.id).select('username role favorites tokenVersion');
+            // ถ้ารหัสผ่านถูกเปลี่ยน/รีเซ็ตไปแล้ว tokenVersion จะไม่ตรงกับตอนออก token นี้ — session เก่าใช้ต่อไม่ได้
+            if (user && user.tokenVersion === payload.v) req.user = user;
         } catch (e) { /* token ไม่ถูกต้อง/หมดอายุ = ถือว่าไม่ได้ล็อกอิน */ }
     }
     next();
@@ -250,6 +352,15 @@ const requireAdmin = [loadUser, (req, res, next) => {
 }];
 
 const cookieOptions = (req) => ({ httpOnly: true, sameSite: 'strict', secure: req.secure, path: '/' });
+// ใช้ sameSite:'lax' เฉพาะคุกกี้ชั่วคราวของ OAuth เท่านั้น เพราะต้องรอดจากการ redirect แบบข้ามเว็บ (Google -> เรา)
+// ซึ่งคุกกี้ sameSite:'strict' จะไม่ถูกส่งมาด้วยในสถานการณ์นั้น ส่วนคุกกี้ session หลัก (mc_session) ยังคง strict ตามเดิม
+const oauthCookieOptions = (req) => ({ httpOnly: true, sameSite: 'lax', secure: req.secure, path: '/', maxAge: OAUTH_MS });
+
+// ออก JWT + ตั้งคุกกี้ session ให้ผู้ใช้คนหนึ่ง ใช้ร่วมกันทั้ง login / register / Google callback
+function issueSession(req, res, user) {
+    const token = jwt.sign({ id: String(user._id), v: user.tokenVersion || 0 }, JWT_SECRET, { algorithm: 'HS256', expiresIn: '7d' });
+    res.cookie(COOKIE_NAME, token, { ...cookieOptions(req), maxAge: SESSION_MS });
+}
 
 // ==========================================
 // 5. Helpers: validation & SSRF protection
@@ -264,6 +375,28 @@ function parseHttpUrl(value) {
 }
 
 const isObjectId = (id) => typeof id === 'string' && /^[a-f\d]{24}$/i.test(id);
+
+// รับเฉพาะพาธภายในเว็บเราเอง (กัน open-redirect ผ่าน ?next=) — เหมือนฝั่ง client (MC.safeNext ใน app.js)
+function MC_safeNext(n) {
+    return (typeof n === 'string' && /^\/(?![\/\\])/.test(n)) ? n : '/';
+}
+
+// คำนวณ redirect_uri ของ Google OAuth — ใช้ค่าจาก Environment ถ้าตั้งไว้ (แนะนำบน production)
+// ไม่งั้นคำนวณจาก request (รองรับ trust proxy ที่ตั้งไว้แล้วสำหรับ X-Forwarded-Proto)
+function googleRedirectUri(req) {
+    return process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/auth/google/callback`;
+}
+
+// ตั้งชื่อผู้ใช้อัตโนมัติจากอีเมลตอนสมัครผ่าน Google ครั้งแรก แล้วเติมเลข/สุ่มต่อท้ายถ้าชื่อซ้ำ
+async function uniqueUsernameFromEmail(email) {
+    const base = (String(email).split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 24) || 'user';
+    let candidate = base;
+    for (let i = 1; i <= 50; i++) {
+        if (!(await User.exists({ username: candidate }))) return candidate;
+        candidate = base + i;
+    }
+    return base + crypto.randomBytes(3).toString('hex');
+}
 
 // ใช้ .lean() เสมอ: เอกสารเก่าบางรายการมีรูปแบบฟิลด์ไม่ตรงกับ schema ปัจจุบันเป๊ะๆ
 // (เช่น tags เคยเก็บเป็น string ธรรมดา) ซึ่งถ้าโหลดเป็น Mongoose Document เต็มรูปแบบ
@@ -344,23 +477,47 @@ function cleanMangaInput(body) {
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
 // --- Auth ---
+// เข้าสู่ระบบด้วยชื่อผู้ใช้ "หรือ" อีเมลที่ผูกไว้ + รหัสผ่าน
 app.post('/login', loginLimiter, wrap(async (req, res) => {
-    const { username, password } = req.body || {};
-    if (typeof username !== 'string' || typeof password !== 'string' ||
-        !username || username.length > 64 || !password || password.length > 128) {
+    const { identifier, password } = req.body || {};
+    if (typeof identifier !== 'string' || typeof password !== 'string' ||
+        !identifier || identifier.length > 254 || !password || password.length > 128) {
         return res.status(400).json({ success: false, message: 'ข้อมูลไม่ถูกต้อง' });
     }
 
-    const user = await User.findOne({ username });
-    // เทียบ hash เสมอ แม้ไม่พบผู้ใช้ เพื่อไม่ให้เดาชื่อบัญชีจากเวลาตอบสนอง
-    const ok = await bcrypt.compare(password, user ? user.password : DUMMY_HASH);
-    if (!user || !ok) {
-        return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+    const id = identifier.trim();
+    const user = await User.findOne({ $or: [{ username: id }, { email: id.toLowerCase() }] }).select('+password username role favorites tokenVersion');
+    // เทียบ hash เสมอแม้ไม่พบผู้ใช้หรือบัญชีนี้ไม่มีรหัสผ่าน (เช่นสมัครด้วย Google ล้วนๆ) เพื่อไม่ให้เดาบัญชีได้จากเวลาตอบสนอง
+    const ok = await bcrypt.compare(password, (user && user.password) ? user.password : DUMMY_HASH);
+    if (!user || !user.password || !ok) {
+        return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง' });
     }
 
-    const token = jwt.sign({ id: String(user._id) }, JWT_SECRET, { algorithm: 'HS256', expiresIn: '7d' });
-    res.cookie(COOKIE_NAME, token, { ...cookieOptions(req), maxAge: SESSION_MS });
+    issueSession(req, res, user);
     res.json({ success: true, username: user.username, role: user.role });
+}));
+
+// สมัครสมาชิกด้วยตัวเอง — ชื่อผู้ใช้ + อีเมล (ไว้ใช้ล็อกอิน/รีเซ็ตรหัสผ่าน) + รหัสผ่าน
+app.post('/register', registerLimiter, wrap(async (req, res) => {
+    const { username, email, password } = req.body || {};
+    if (typeof username !== 'string' || !USERNAME_RE.test(username)) {
+        return res.status(400).json({ success: false, message: 'ชื่อผู้ใช้ต้องมี 3-32 ตัวอักษร (a-z, A-Z, 0-9, _ เท่านั้น)' });
+    }
+    if (typeof email !== 'string' || !EMAIL_RE.test(email) || email.length > 254) {
+        return res.status(400).json({ success: false, message: 'อีเมลไม่ถูกต้อง' });
+    }
+    if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+        return res.status(400).json({ success: false, message: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' });
+    }
+
+    const normEmail = email.trim().toLowerCase();
+    const exists = await User.findOne({ $or: [{ username }, { email: normEmail }] }).select('_id');
+    if (exists) return res.status(409).json({ success: false, message: 'ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้แล้ว' });
+
+    const hash = await bcrypt.hash(password, BCRYPT_COST);
+    const user = await User.create({ username, email: normEmail, password: hash, role: 'user' });
+    issueSession(req, res, user);
+    res.status(201).json({ success: true, username: user.username, role: user.role });
 }));
 
 app.post('/api/logout', (req, res) => {
@@ -378,6 +535,119 @@ app.get('/api/me', loadUser, (req, res) => {
         favorites: req.user.favorites || []
     });
 });
+
+// --- ลืมรหัสผ่าน ---
+// ตอบข้อความกลางๆ เหมือนกันไม่ว่าจะพบอีเมลในระบบหรือไม่ เพื่อกันการสุ่มเช็คว่าอีเมลไหนสมัครไว้บ้าง (enumeration)
+const FORGOT_GENERIC_MSG = 'ถ้าอีเมลนี้มีอยู่ในระบบ เราได้ส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ไปให้แล้ว (เช็คกล่องสแปมด้วยถ้าไม่เจอ)';
+app.post('/api/forgot-password', forgotLimiter, wrap(async (req, res) => {
+    const { email } = req.body || {};
+    if (typeof email !== 'string' || !EMAIL_RE.test(email) || email.length > 254) {
+        return res.status(400).json({ success: false, message: 'อีเมลไม่ถูกต้อง' });
+    }
+    const normEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normEmail }).select('_id');
+    if (user) {
+        const token = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        await User.updateOne({ _id: user._id }, {
+            $set: { resetTokenHash: tokenHash, resetTokenExpires: new Date(Date.now() + 60 * 60 * 1000) }
+        });
+        const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${token}`;
+        sendResetEmail(normEmail, resetUrl).catch(err => console.error('❌ ส่งอีเมลรีเซ็ตรหัสผ่านไม่สำเร็จ:', err.message));
+    }
+    res.json({ success: true, message: FORGOT_GENERIC_MSG });
+}));
+
+app.post('/api/reset-password', resetLimiter, wrap(async (req, res) => {
+    const { token, password } = req.body || {};
+    if (typeof token !== 'string' || !token || token.length > 256) {
+        return res.status(400).json({ success: false, message: 'ลิงก์ไม่ถูกต้องหรือหมดอายุ' });
+    }
+    if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+        return res.status(400).json({ success: false, message: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' });
+    }
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await User.findOne({ resetTokenHash: tokenHash, resetTokenExpires: { $gt: new Date() } }).select('+resetTokenHash +resetTokenExpires');
+    if (!user) return res.status(400).json({ success: false, message: 'ลิงก์ไม่ถูกต้องหรือหมดอายุ กรุณาขอลิงก์ใหม่' });
+
+    user.password = await bcrypt.hash(password, BCRYPT_COST);
+    user.resetTokenHash = undefined;
+    user.resetTokenExpires = undefined;
+    user.tokenVersion = (user.tokenVersion || 0) + 1; // ตัด session เก่าทั้งหมดทิ้งหลังเปลี่ยนรหัสผ่าน
+    await user.save();
+    res.json({ success: true, message: 'ตั้งรหัสผ่านใหม่เรียบร้อยแล้ว เข้าสู่ระบบได้เลย' });
+}));
+
+// --- เข้าสู่ระบบ/สมัครด้วย Google (Authorization Code flow ฝั่งเซิร์ฟเวอร์ ไม่ต้องโหลดสคริปต์จาก Google
+//     จึงไม่ต้องผ่อน CSP — ปลอดภัยกว่าและเข้ากับนโยบาย "ไม่มี inline script / CDN ภายนอก" ของเว็บนี้) ---
+app.get('/auth/google', googleLimiter, (req, res) => {
+    if (!GOOGLE_ENABLED) return res.status(404).type('text').send('ยังไม่ได้เปิดใช้งานการเข้าสู่ระบบด้วย Google');
+    const state = crypto.randomBytes(24).toString('hex');
+    const next = MC_safeNext(req.query.next);
+    res.cookie(OAUTH_COOKIE, JSON.stringify({ state, next }), oauthCookieOptions(req));
+
+    const redirectUri = googleRedirectUri(req);
+    const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + querystring.stringify({
+        client_id: GOOGLE_CLIENT_ID,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'openid email profile',
+        state,
+        prompt: 'select_account'
+    });
+    res.redirect(authUrl);
+});
+
+app.get('/auth/google/callback', googleLimiter, wrap(async (req, res) => {
+    const fail = (why) => { console.warn('⚠️ Google OAuth ล้มเหลว:', why); res.clearCookie(OAUTH_COOKIE, { path: '/' }); return res.redirect('/login?error=google'); };
+    if (!GOOGLE_ENABLED) return fail('not-enabled');
+
+    let saved = {};
+    try { saved = JSON.parse(req.cookies && req.cookies[OAUTH_COOKIE] || '{}'); } catch (e) { /* ignore */ }
+    res.clearCookie(OAUTH_COOKIE, { path: '/' });
+
+    const { code, state } = req.query || {};
+    if (typeof code !== 'string' || typeof state !== 'string' || !saved.state || state !== saved.state) {
+        return fail('state-mismatch');
+    }
+
+    let tokenRes;
+    try {
+        tokenRes = await httpsPostForm('oauth2.googleapis.com', '/token', {
+            code, client_id: GOOGLE_CLIENT_ID, client_secret: GOOGLE_CLIENT_SECRET,
+            redirect_uri: googleRedirectUri(req), grant_type: 'authorization_code'
+        });
+    } catch (e) { return fail('token-exchange: ' + e.message); }
+    if (tokenRes.status !== 200 || !tokenRes.body || !tokenRes.body.id_token) return fail('no-id-token');
+
+    let payload;
+    try { payload = decodeJwtPayloadUnsafe(tokenRes.body.id_token); } catch (e) { return fail('bad-id-token'); }
+
+    const validIss = payload.iss === 'accounts.google.com' || payload.iss === 'https://accounts.google.com';
+    if (!validIss || payload.aud !== GOOGLE_CLIENT_ID || !payload.exp || payload.exp * 1000 < Date.now()) {
+        return fail('invalid-claims');
+    }
+    if (!payload.sub || !payload.email || payload.email_verified !== true) return fail('email-not-verified');
+
+    const googleId = String(payload.sub);
+    const email = String(payload.email).toLowerCase();
+
+    let user = await User.findOne({ googleId }).select('username role tokenVersion');
+    if (!user) {
+        // ผูกเข้ากับบัญชีเดิมถ้าอีเมลตรงกัน (และ Google ยืนยันแล้วว่าเป็นเจ้าของอีเมลจริง) ไม่งั้นสร้างบัญชีใหม่
+        user = await User.findOne({ email }).select('username role tokenVersion');
+        if (user) {
+            user.googleId = googleId;
+            await user.save();
+        } else {
+            const username = await uniqueUsernameFromEmail(email);
+            user = await User.create({ username, email, googleId, role: 'user' });
+        }
+    }
+
+    issueSession(req, res, user);
+    res.redirect(MC_safeNext(saved.next));
+}));
 
 // --- Manga (อ่านได้ทุกคน / แก้ไขได้เฉพาะแอดมิน) ---
 const LIST_FIELDS = '_id id title th_name en_name jp_name cover author tags rating';
@@ -464,7 +734,7 @@ app.post('/favorite', requireAuth, wrap(async (req, res) => {
 // ==========================================
 // 7. Pages
 // ==========================================
-const PAGES = new Set(['index', 'admin', 'detail', 'favorites', 'login', 'about']);
+const PAGES = new Set(['index', 'admin', 'detail', 'favorites', 'login', 'register', 'forgot-password', 'reset-password', 'about']);
 
 const sendPage = (page) => (req, res) => {
     res.set('Cache-Control', 'no-cache');
