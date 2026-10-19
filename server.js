@@ -452,7 +452,7 @@ function cleanMangaInput(body) {
     if (!Array.isArray(rawChapters) || rawChapters.length > 1000) {
         return { error: 'รายการตอนไม่ถูกต้อง (สูงสุด 1000 ตอน)' };
     }
-    const chapters = [];
+    const chapters = [];        
     for (const ch of rawChapters) {
         if (!ch || typeof ch !== 'object' || Array.isArray(ch)) return { error: 'ข้อมูลรายการตอนไม่ถูกต้อง' };
         const rawUrl = typeof ch.url === 'string' ? ch.url.trim() : '';

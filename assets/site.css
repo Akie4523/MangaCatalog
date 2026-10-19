@@ -370,3 +370,9 @@ dialog.sheet .stack { gap: 1rem; }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+/* บนหน้าจอคอมพิวเตอร์ (ความกว้าง 768px ขึ้นไป) ให้ซ่อนปุ่มนี้ */
+@media screen and (min-width: 768px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
