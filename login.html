@@ -24,11 +24,14 @@
                 </div>
                 <form id="login-form" class="stack" novalidate>
                     <div class="field">
-                        <label for="username">ชื่อผู้ใช้</label>
-                        <input class="input" id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required>
+                        <label for="identifier">ชื่อผู้ใช้ หรือ อีเมล</label>
+                        <input class="input" id="identifier" name="identifier" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" required>
                     </div>
                     <div class="field">
-                        <label for="password">รหัสผ่าน</label>
+                        <div class="field-row">
+                            <label for="password">รหัสผ่าน</label>
+                            <a class="small" href="/forgot-password">ลืมรหัสผ่าน?</a>
+                        </div>
                         <div class="pw">
                             <input class="input" id="password" name="password" type="password" autocomplete="current-password" maxlength="128" required>
                             <button type="button" id="pw-toggle" aria-label="แสดงรหัสผ่าน" aria-pressed="false"></button>
@@ -37,6 +40,9 @@
                     <p id="form-error" class="form-error" role="alert"></p>
                     <button class="btn btn-primary btn-block" id="submit" type="submit">เข้าสู่ระบบ</button>
                 </form>
+                <div class="divider"><span>หรือ</span></div>
+                <a class="btn btn-block" id="google-btn" href="/auth/google">เข้าสู่ระบบด้วย Google</a>
+                <p class="small muted center">ยังไม่มีบัญชี? <a href="/register">สมัครสมาชิก</a></p>
             </div>
             <p class="small muted mt"><a href="/">กลับหน้าหลัก</a></p>
         </div>

@@ -286,7 +286,13 @@ a.tag:hover { border-color: var(--frame); }
 /* ---------- Forms ---------- */
 .field { display: grid; gap: .35rem; }
 .field label { font-size: .875rem; font-weight: 600; }
+.field-row { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+.field-row label { margin: 0; }
 .hint { color: var(--ink-3); font-size: .8125rem; }
+.center { text-align: center; }
+/* เส้นคั่น "หรือ" ระหว่างฟอร์มล็อกอินปกติกับปุ่ม Google */
+.divider { display: flex; align-items: center; gap: .75rem; color: var(--ink-3); font-size: .8125rem; margin: .25rem 0; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1.5px; background: var(--rule); }
 .input {
     width: 100%; min-height: 46px; padding: .55rem .85rem;
     border: 2px solid var(--rule); border-radius: var(--radius); background: var(--panel);
