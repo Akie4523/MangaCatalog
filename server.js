@@ -46,14 +46,24 @@ if (!GOOGLE_ENABLED) {
 }
 
 // ----- ส่งอีเมล (ลืมรหัสผ่าน) ไม่บังคับ — ตั้ง SMTP_HOST/SMTP_USER/SMTP_PASS เพื่อเปิดใช้งาน -----
+// ตัดช่องว่างหัว-ท้ายของค่าที่ตั้งใน Environment เสมอ และตัดช่องว่างข้างในของรหัสผ่านทิ้งด้วย
+// เพราะ Gmail App Password จะโชว์เป็น 4 กลุ่มคั่นด้วยช่องว่าง (เช่น "abcd efgh ijkl mnop")
+// เพื่อให้อ่านง่ายเฉยๆ แต่รหัสผ่านจริงไม่มีช่องว่าง — ถ้าก็อปมาแปะทั้งช่องว่างจะล็อกอิน SMTP ไม่ผ่านแบบเงียบๆ
+const SMTP_HOST = (process.env.SMTP_HOST || '').trim();
+const SMTP_USER = (process.env.SMTP_USER || '').trim();
+const SMTP_PASS = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
 let mailTransporter = null;
-if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
     mailTransporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
+        host: SMTP_HOST,
         port: Number(process.env.SMTP_PORT || 587),
         secure: Number(process.env.SMTP_PORT) === 465,
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+        auth: { user: SMTP_USER, pass: SMTP_PASS }
     });
+    // เช็คตอนบูทเลยว่า SMTP ล็อกอินผ่านจริงไหม จะได้เห็น error ใน log ทันทีแทนที่จะรู้ตัวตอนมีคนกด "ลืมรหัสผ่าน" แล้วไม่มีอีเมลไปถึง
+    mailTransporter.verify()
+        .then(() => console.log('✅ เชื่อมต่อ SMTP สำเร็จ พร้อมส่งอีเมลลืมรหัสผ่าน'))
+        .catch(err => console.error('❌ เชื่อมต่อ/ล็อกอิน SMTP ไม่สำเร็จ (ระบบลืมรหัสผ่านจะส่งอีเมลไม่ได้):', err.message));
 } else {
     console.warn('⚠️ ยังไม่ได้ตั้งค่า SMTP_HOST/SMTP_USER/SMTP_PASS — ระบบ "ลืมรหัสผ่าน" จะส่งอีเมลไม่ได้ (จะพิมพ์ลิงก์ไว้ใน log แทน)');
 }
