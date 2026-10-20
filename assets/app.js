@@ -206,6 +206,7 @@
                     '<details class="menu"><summary class="navlink" aria-label="เมนูบัญชี">' + icon('user') + '<span class="nav-t">' + esc(user.username) + '</span></summary>' +
                     '<div class="menu-pop">' +
                         (user.role === 'admin' ? '<a href="/admin">' + icon('shield') + 'จัดการมังงะ</a>' : '') +
+                        '<a href="/account">' + icon('tools') + 'แก้ไขบัญชี</a>' +
                         '<button type="button" id="logout-btn">' + icon('logout') + 'ออกจากระบบ</button>' +
                     '</div></details>';
                 document.getElementById('logout-btn').addEventListener('click', function () {

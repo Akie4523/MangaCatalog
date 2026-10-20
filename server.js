@@ -104,6 +104,14 @@ function decodeJwtPayloadUnsafe(token) {
     return JSON.parse(Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
 }
 
+// คุกกี้ชั่วคราวของ OAuth ต้องเซ็นด้วย JWT_SECRET (ไม่ใช่แค่ JSON เฉยๆ) เพราะมันอาจมี linkUserId
+// (ตอนผูกบัญชี Google จากหน้าแก้ไขบัญชี) ติดไปด้วย — ถ้าไม่เซ็น ผู้ใช้จะแก้คุกกี้ตัวเองให้ชี้ไปบัญชีคนอื่น
+// แล้วใช้ Google ของตัวเองผูกเข้ากับบัญชีคนอื่นได้ (account takeover ผ่านการปลอมคุกกี้)
+function signOauthState(payload) { return jwt.sign(payload, JWT_SECRET, { algorithm: 'HS256', expiresIn: '10m' }); }
+function verifyOauthState(token) {
+    try { return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }); } catch (e) { return null; }
+}
+
 // ==========================================
 // 1. Discord Bot System (เหมือนเดิม)
 // ==========================================
@@ -238,6 +246,11 @@ const resetLimiter = rateLimit({
 });
 const googleLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false,
+    message: { success: false, message: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที' }
+});
+// จำกัดเป็นพิเศษสำหรับเปลี่ยนรหัสผ่าน: กันการสุ่มเดารหัสผ่านปัจจุบัน
+const accountPasswordLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false,
     message: { success: false, message: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที' }
 });
 app.use('/api', apiLimiter);
@@ -580,11 +593,14 @@ app.post('/api/reset-password', resetLimiter, wrap(async (req, res) => {
 
 // --- เข้าสู่ระบบ/สมัครด้วย Google (Authorization Code flow ฝั่งเซิร์ฟเวอร์ ไม่ต้องโหลดสคริปต์จาก Google
 //     จึงไม่ต้องผ่อน CSP — ปลอดภัยกว่าและเข้ากับนโยบาย "ไม่มี inline script / CDN ภายนอก" ของเว็บนี้) ---
-app.get('/auth/google', googleLimiter, (req, res) => {
+app.get('/auth/google', googleLimiter, loadUser, (req, res) => {
     if (!GOOGLE_ENABLED) return res.status(404).type('text').send('ยังไม่ได้เปิดใช้งานการเข้าสู่ระบบด้วย Google');
     const state = crypto.randomBytes(24).toString('hex');
     const next = MC_safeNext(req.query.next);
-    res.cookie(OAUTH_COOKIE, JSON.stringify({ state, next }), oauthCookieOptions(req));
+    // ถ้ากดมาจากหน้าแก้ไขบัญชีตอนที่ล็อกอินอยู่แล้ว ให้จำ user ปัจจุบันไว้ เพื่อ "ผูก" Google เข้ากับบัญชีนี้
+    // แทนที่จะเข้าสู่ระบบ/สมัครบัญชีใหม่ตามปกติ — ใส่ไว้ใน cookie ที่เซ็นด้วย JWT_SECRET กันปลอมแปลง
+    const linkUserId = req.user ? String(req.user._id) : null;
+    res.cookie(OAUTH_COOKIE, signOauthState({ state, next, linkUserId }), oauthCookieOptions(req));
 
     const redirectUri = googleRedirectUri(req);
     const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + querystring.stringify({
@@ -602,9 +618,10 @@ app.get('/auth/google/callback', googleLimiter, wrap(async (req, res) => {
     const fail = (why) => { console.warn('⚠️ Google OAuth ล้มเหลว:', why); res.clearCookie(OAUTH_COOKIE, { path: '/' }); return res.redirect('/login?error=google'); };
     if (!GOOGLE_ENABLED) return fail('not-enabled');
 
-    let saved = {};
-    try { saved = JSON.parse(req.cookies && req.cookies[OAUTH_COOKIE] || '{}'); } catch (e) { /* ignore */ }
+    const rawCookie = req.cookies && req.cookies[OAUTH_COOKIE];
+    const saved = rawCookie ? verifyOauthState(rawCookie) : null;
     res.clearCookie(OAUTH_COOKIE, { path: '/' });
+    if (!saved) return fail('bad-or-expired-oauth-cookie');
 
     const { code, state } = req.query || {};
     if (typeof code !== 'string' || typeof state !== 'string' || !saved.state || state !== saved.state) {
@@ -632,6 +649,26 @@ app.get('/auth/google/callback', googleLimiter, wrap(async (req, res) => {
     const googleId = String(payload.sub);
     const email = String(payload.email).toLowerCase();
 
+    // โหมดผูกบัญชี — กดมาจากหน้าแก้ไขบัญชีตอนล็อกอินอยู่แล้ว (ดู linkUserId ใน /auth/google ด้านบน)
+    if (saved.linkUserId) {
+        const already = await User.findOne({ googleId }).select('_id');
+        if (already && String(already._id) !== saved.linkUserId) {
+            return res.redirect('/account?error=google_in_use');
+        }
+        const me = await User.findById(saved.linkUserId).select('username role tokenVersion email');
+        if (!me) return fail('link-user-missing');
+        me.googleId = googleId;
+        if (!me.email) me.email = email; // เติมอีเมลให้ถ้าบัญชีนี้ยังไม่เคยมี
+        try {
+            await me.save();
+        } catch (e) {
+            // อีเมลของ Google ซ้ำกับอีเมลที่บัญชีอื่นใช้อยู่ (unique index)
+            return res.redirect('/account?error=google_email_taken');
+        }
+        issueSession(req, res, me);
+        return res.redirect('/account?linked=1');
+    }
+
     let user = await User.findOne({ googleId }).select('username role tokenVersion');
     if (!user) {
         // ผูกเข้ากับบัญชีเดิมถ้าอีเมลตรงกัน (และ Google ยืนยันแล้วว่าเป็นเจ้าของอีเมลจริง) ไม่งั้นสร้างบัญชีใหม่
@@ -647,6 +684,80 @@ app.get('/auth/google/callback', googleLimiter, wrap(async (req, res) => {
 
     issueSession(req, res, user);
     res.redirect(MC_safeNext(saved.next));
+}));
+
+// --- แก้ไขข้อมูลบัญชี (เฉพาะเจ้าของบัญชีที่ล็อกอินอยู่) ---
+app.get('/api/account', requireAuth, wrap(async (req, res) => {
+    const u = await User.findById(req.user._id).select('+password username email role googleId');
+    if (!u) return res.status(404).json({ message: 'ไม่พบบัญชี' });
+    res.json({
+        username: u.username,
+        email: u.email || '',
+        hasPassword: Boolean(u.password),
+        googleLinked: Boolean(u.googleId)
+    });
+}));
+
+app.put('/api/account/profile', requireAuth, wrap(async (req, res) => {
+    const { username, email } = req.body || {};
+    if (typeof username !== 'string' || !USERNAME_RE.test(username)) {
+        return res.status(400).json({ success: false, message: 'ชื่อผู้ใช้ต้องมี 3-32 ตัวอักษร (a-z, A-Z, 0-9, _ เท่านั้น)' });
+    }
+    // อีเมลไม่บังคับ: ลบได้ (เช่นอยากใช้แค่ชื่อผู้ใช้ + Google) แต่ถ้ากรอกต้องถูกรูปแบบ
+    let normEmail;
+    if (email === undefined || email === null || email === '') {
+        normEmail = undefined;
+    } else if (typeof email !== 'string' || !EMAIL_RE.test(email) || email.length > 254) {
+        return res.status(400).json({ success: false, message: 'อีเมลไม่ถูกต้อง' });
+    } else {
+        normEmail = email.trim().toLowerCase();
+    }
+
+    const dupQuery = { _id: { $ne: req.user._id }, $or: [{ username }, ...(normEmail ? [{ email: normEmail }] : [])] };
+    const dup = await User.findOne(dupQuery).select('_id');
+    if (dup) return res.status(409).json({ success: false, message: 'ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้โดยบัญชีอื่นแล้ว' });
+
+    const me = await User.findById(req.user._id).select('username email googleId');
+    if (!normEmail && me.googleId) {
+        return res.status(400).json({ success: false, message: 'บัญชีนี้ผูกกับ Google ไว้ ต้องมีอีเมลอย่างน้อยหนึ่งอัน ลบไม่ได้' });
+    }
+    me.username = username;
+    me.email = normEmail; // undefined จะลบฟิลด์นี้ออกไปจริงๆ (ตาม sparse unique index)
+    await me.save();
+    res.json({ success: true, username: me.username, email: me.email || '' });
+}));
+
+app.post('/api/account/password', accountPasswordLimiter, requireAuth, wrap(async (req, res) => {
+    const { currentPassword, newPassword } = req.body || {};
+    if (typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 128) {
+        return res.status(400).json({ success: false, message: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' });
+    }
+    const me = await User.findById(req.user._id).select('+password username tokenVersion');
+    if (me.password) {
+        // มีรหัสผ่านเดิมอยู่แล้ว ต้องยืนยันก่อนเปลี่ยน
+        if (typeof currentPassword !== 'string' || !currentPassword) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกรหัสผ่านเดิม' });
+        }
+        const ok = await bcrypt.compare(currentPassword, me.password);
+        if (!ok) return res.status(401).json({ success: false, message: 'รหัสผ่านเดิมไม่ถูกต้อง' });
+    }
+    // ถ้ายังไม่เคยมีรหัสผ่าน (สมัครด้วย Google ล้วนๆ) ถือเป็นการ "ตั้งรหัสผ่านครั้งแรก" ไม่ต้องยืนยันรหัสเดิม
+    me.password = await bcrypt.hash(newPassword, BCRYPT_COST);
+    me.tokenVersion = (me.tokenVersion || 0) + 1; // ตัด session อื่นๆ ทั้งหมด (กันกรณีรหัสผ่านเดิมหลุด)
+    await me.save();
+    issueSession(req, res, me); // ออก session ใหม่ให้ browser ปัจจุบันไม่หลุดตาม
+    res.json({ success: true, message: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว' });
+}));
+
+app.post('/api/account/unlink-google', requireAuth, wrap(async (req, res) => {
+    const me = await User.findById(req.user._id).select('+password googleId');
+    if (!me.googleId) return res.status(400).json({ success: false, message: 'บัญชีนี้ยังไม่ได้ผูกกับ Google' });
+    if (!me.password) {
+        return res.status(400).json({ success: false, message: 'กรุณาตั้งรหัสผ่านก่อน ไม่งั้นจะเข้าบัญชีนี้ไม่ได้อีกถ้ายกเลิกการเชื่อม Google' });
+    }
+    me.googleId = undefined;
+    await me.save();
+    res.json({ success: true, message: 'ยกเลิกการเชื่อมบัญชี Google แล้ว' });
 }));
 
 // --- Manga (อ่านได้ทุกคน / แก้ไขได้เฉพาะแอดมิน) ---
@@ -734,7 +845,7 @@ app.post('/favorite', requireAuth, wrap(async (req, res) => {
 // ==========================================
 // 7. Pages
 // ==========================================
-const PAGES = new Set(['index', 'admin', 'detail', 'favorites', 'login', 'register', 'forgot-password', 'reset-password', 'about']);
+const PAGES = new Set(['index', 'admin', 'detail', 'favorites', 'login', 'register', 'forgot-password', 'reset-password', 'account', 'about']);
 
 const sendPage = (page) => (req, res) => {
     res.set('Cache-Control', 'no-cache');
