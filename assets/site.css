@@ -336,6 +336,11 @@ fieldset.group legend + * { clear: both; }
 @media (min-width: 480px) { .cover-row { grid-template-columns: 96px minmax(0, 1fr); } }
 .form-actions { position: sticky; bottom: 0; display: flex; gap: .75rem; margin-top: 2rem; padding: 1rem 0; background: var(--bg); border-top: 2px solid var(--frame); }
 .form-actions .btn-primary { flex: 1; }
+/* แถวปุ่มธรรมดา (ไม่ sticky) — ใช้ในหน้าที่มีหลายฟอร์มย่อยอยู่ในแผงเดียวกัน เช่นหน้าแก้ไขบัญชี */
+.btn-row { display: flex; flex-wrap: wrap; gap: .75rem; }
+/* หน้าแก้ไขบัญชี: เรียงเป็นคอลัมน์เดียว จัดกว้างพออ่านสบายบนจอใหญ่ */
+.account-grid { display: grid; gap: 1.5rem; max-width: 640px; margin: 0 auto 4rem; }
+.account-grid h2 { font-size: 1.1rem; }
 
 /* ---------- Dialog & toast ---------- */
 dialog.sheet {

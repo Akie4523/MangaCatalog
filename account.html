@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>แก้ไขบัญชี — MangaCatalog</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Mitr:wght@400;500&display=swap">
+    <link rel="stylesheet" href="/assets/site.css">
+    <script src="/assets/app.js"></script>
+</head>
+<body>
+    <a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+    <header id="site-header"></header>
+
+    <main id="main" class="wrap">
+        <div class="page-h">
+            <h1>แก้ไขบัญชี</h1>
+            <p>จัดการชื่อผู้ใช้ อีเมล รหัสผ่าน และการเชื่อมบัญชี Google</p>
+        </div>
+
+        <div id="denied" class="note hide" role="alert"></div>
+
+        <div id="app" class="hide account-grid">
+            <section class="panel stack">
+                <h2>ข้อมูลพื้นฐาน</h2>
+                <form id="profile-form" class="stack" novalidate>
+                    <div class="field">
+                        <label for="p-username">ชื่อผู้ใช้</label>
+                        <input class="input" id="p-username" maxlength="32" pattern="[a-zA-Z0-9_]+" required>
+                        <span class="hint">3-32 ตัวอักษร ใช้ได้เฉพาะ a-z, A-Z, 0-9 และ _</span>
+                    </div>
+                    <div class="field">
+                        <label for="p-email">อีเมล</label>
+                        <input class="input" id="p-email" type="email" maxlength="254">
+                        <span class="hint" id="email-hint">ใช้สำหรับล็อกอินแทนชื่อผู้ใช้ และตั้งรหัสผ่านใหม่เวลาลืม</span>
+                    </div>
+                    <p id="profile-error" class="form-error" role="alert"></p>
+                    <div class="btn-row">
+                        <button class="btn btn-primary" id="profile-save" type="submit">บันทึก</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel stack">
+                <h2 id="pw-heading">เปลี่ยนรหัสผ่าน</h2>
+                <form id="password-form" class="stack" novalidate>
+                    <div class="field" id="current-pw-field">
+                        <label for="current-password">รหัสผ่านเดิม</label>
+                        <div class="pw">
+                            <input class="input" id="current-password" type="password" autocomplete="current-password" maxlength="128">
+                            <button type="button" class="pw-toggle" data-for="current-password" aria-label="แสดงรหัสผ่าน" aria-pressed="false"></button>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="new-password">รหัสผ่านใหม่</label>
+                        <div class="pw">
+                            <input class="input" id="new-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+                            <button type="button" class="pw-toggle" data-for="new-password" aria-label="แสดงรหัสผ่าน" aria-pressed="false"></button>
+                        </div>
+                        <span class="hint">อย่างน้อย 8 ตัวอักษร</span>
+                    </div>
+                    <div class="field">
+                        <label for="new-password2">ยืนยันรหัสผ่านใหม่</label>
+                        <input class="input" id="new-password2" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+                    </div>
+                    <p id="password-error" class="form-error" role="alert"></p>
+                    <div class="btn-row">
+                        <button class="btn btn-primary" id="password-save" type="submit">เปลี่ยนรหัสผ่าน</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel stack">
+                <h2>บัญชี Google</h2>
+                <p id="google-status" class="muted small"></p>
+                <p id="google-error" class="form-error" role="alert"></p>
+                <div class="btn-row">
+                    <a class="btn" id="google-link-btn" href="/auth/google?next=/account">เชื่อมบัญชี Google</a>
+                    <button class="btn btn-danger hide" id="google-unlink-btn" type="button">ยกเลิกการเชื่อม Google</button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer id="site-footer"></footer>
+    <script src="/assets/account.js"></script>
+</body>
+</html>
