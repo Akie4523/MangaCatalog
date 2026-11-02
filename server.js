@@ -734,7 +734,7 @@ app.post('/favorite', requireAuth, wrap(async (req, res) => {
 // ==========================================
 // 7. Pages
 // ==========================================
-const PAGES = new Set(['index', 'admin', 'detail', 'favorites', 'login', 'register', 'forgot-password', 'reset-password', 'about']);
+const PAGES = new Set(['index', 'admin', 'detail', 'favorites', 'login', 'register', 'forgot-password', 'reset-password', 'about', 'aru-tracker' ]);
 
 const sendPage = (page) => (req, res) => {
     res.set('Cache-Control', 'no-cache');
