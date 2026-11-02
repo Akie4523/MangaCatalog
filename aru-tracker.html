@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARU Activity Tracker - ระบบติดตามชั่วโมงกิจกรรมนักศึกษา</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 24px 14px;
+    background: #f4f6fb;
+    color: #202637;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+main {
+    max-width: 1050px;
+    margin: auto;
+}
+
+header, .line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+h1 {
+    font-size: 25px;
+    margin: 0 0 4px;
+}
+
+h2 {
+    font-size: 17px;
+    margin: 0 0 12px;
+}
+
+.muted, small {
+    color: #687386;
+    font-size: 13px;
+}
+
+.panel, .stat {
+    background: white;
+    border: 1px solid #e4e8f0;
+    border-radius: 14px;
+    padding: 17px;
+    margin: 14px 0;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.stat {
+    margin: 0;
+}
+
+.stat strong {
+    display: block;
+    font-size: 24px;
+    margin-top: 5px;
+}
+
+button, .filelabel {
+    border: 0;
+    border-radius: 9px;
+    padding: 10px 14px;
+    font-weight: 650;
+    cursor: pointer;
+    background: #293d6c;
+    color: white;
+}
+
+button:disabled {
+    opacity: .6;
+    cursor: wait;
+}
+
+.secondary, .filelabel {
+    background: #e9edf5;
+    color: #26334d;
+}
+
+.danger {
+    background: #fff0f0;
+    color: #a52b2b;
+}
+
+.actions {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+textarea {
+    width: 100%;
+    min-height: 145px;
+    border: 1px solid #d6dce8;
+    border-radius: 10px;
+    padding: 12px;
+    font: 13px monospace;
+    resize: vertical;
+}
+
+.notice {
+    background: #fff8e8;
+    border: 1px solid #f1dfad;
+    color: #6f5418;
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-top: 12px;
+}
+
+.msg {
+    font-size: 13px;
+    white-space: pre-wrap;
+    margin-top: 10px;
+}
+
+.good { color: #167344; }
+.bad { color: #b42318; }
+
+.tablewrap {
+    overflow: auto;
+}
+
+table {
+    width: 100%;
+    min-width: 740px;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+th, td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid #edf0f5;
+    vertical-align: top;
+}
+
+th {
+    background: #fafbfe;
+    color: #687386;
+}
+
+.pill {
+    display: inline-block;
+    border-radius: 20px;
+    padding: 3px 8px;
+    background: #edf1f8;
+    font-size: 11px;
+}
+
+.pill-success {
+    background: #e6f4ea;
+    color: #137333;
+}
+
+.empty {
+    text-align: center;
+    color: #7b8494;
+    padding: 32px 8px;
+}
+
+@media(max-width:650px) {
+    .stats {
+        grid-template-columns: 1fr;
+    }
+
+    body {
+        padding: 16px 10px;
+    }
+}
+</style>
+</head>
+
+<body>
+<main>
+
+<header>
+    <div>
+        <h1>ARU Activity Tracker</h1>
+        <div class="muted">
+            ระบบติดตามและคำนวณชั่วโมงกิจกรรมนักศึกษา มหาวิทยาลัยราชภัฏพระนครศรีอยุธยา
+        </div>
+    </div>
+
+    <button class="danger" id="clear">
+        ล้างข้อมูลทั้งหมด
+    </button>
+</header>
+
+<section class="panel">
+    <h2>1. ดึงข้อมูลจากระบบ ARU โดยตรง</h2>
+
+    <div class="muted">
+        เรียก API ด้วยเซสชันที่ล็อกอินอยู่ในเบราว์เซอร์นี้
+    </div>
+
+    <div class="actions">
+        <button id="fetch">ดึงข้อมูลจาก API</button>
+    </div>
+
+    <div class="notice">
+        <b>หมายเหตุเกี่ยวกับ CORS Policy:</b><br>
+        หากเปิดเว็บจาก Localhost หรือโดเมนอื่น เบราว์เซอร์อาจบล็อกการดึงข้อมูล ให้ใช้วิธีใน <b>ส่วนที่ 2 (วาง JSON หรือเลือกไฟล์)</b> แทน
+    </div>
+
+    <div id="fetchMsg" class="msg"></div>
+</section>
+
+<section class="panel">
+    <h2>2. วางข้อมูล JSON หรือเลือกไฟล์</h2>
+
+    <div class="muted">
+        คัดลอกข้อมูล Response JSON จากระบบกิจกรรม ARU มาวาง หรือเลือกไฟล์ .json ที่ดาวน์โหลดไว้
+    </div>
+
+    <textarea id="json"
+        placeholder="วางข้อความ JSON ที่คัดลอกมาจาก API ที่นี่..."></textarea>
+
+    <div class="actions">
+        <button id="importPaste">นำเข้าข้อมูล JSON</button>
+
+        <label class="filelabel" for="file">
+            เลือกไฟล์ .json
+        </label>
+
+        <input
+            id="file"
+            type="file"
+            accept=".json,application/json"
+            hidden
+        >
+    </div>
+
+    <div id="importMsg" class="msg"></div>
+</section>
+
+<section class="stats">
+    <div class="stat">
+        <small>ชั่วโมงกิจกรรมที่เข้าร่วมสำเร็จ</small>
+        <strong id="hours">0 ชม. 0 นาที</strong>
+    </div>
+
+    <div class="stat">
+        <small>จำนวนกิจกรรมทั้งหมด</small>
+        <strong id="count">0 รายการ</strong>
+    </div>
+
+    <div class="stat">
+        <small>กิจกรรมที่เสร็จสิ้น (Completed)</small>
+        <strong id="completed">0 รายการ</strong>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="line">
+        <div>
+            <h2 style="margin-bottom:4px">ประวัติการเข้าร่วมกิจกรรม</h2>
+            <div id="statsText" class="muted">ยังไม่มีข้อมูลในระบบ</div>
+        </div>
+
+        <button class="secondary" id="csv">ส่งออกไฟล์ CSV</button>
+    </div>
+
+    <div class="tablewrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>วันที่จัดกิจกรรม</th>
+                    <th>ชื่อกิจกรรม</th>
+                    <th>ประเภทกิจกรรม</th>
+                    <th>ช่วงเวลา</th>
+                    <th>รวมระยะเวลา</th>
+                    <th>สถานะ</th>
+                </tr>
+            </thead>
+
+            <tbody id="rows">
+                <tr>
+                    <td colspan="6" class="empty">
+                        ยังไม่มีข้อมูล กรุณานำเข้าข้อมูล JSON ก่อน
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="muted">
+    * ข้อมูลทั้งหมดจะถูกบันทึกไว้ใน Local Storage ของเบราว์เซอร์เครื่องนี้เท่านั้น
+</div>
+
+</main>
+
+<script>
+(() => {
+"use strict";
+
+const API =
+    "https://activity.aru.ac.th/api/registrations/history?category=university&limit=10";
+
+const STORAGE_KEY = "aru_activity_tracker_v2";
+
+let records = [];
+let apiStats = null;
+
+const $ = id => document.getElementById(id);
+
+function esc(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    }[c]));
+}
+
+function itemsFrom(data) {
+    if (Array.isArray(data)) {
+        return data;
+    }
+    if (Array.isArray(data?.data?.items)) {
+        apiStats = data.data.stats || apiStats;
+        return data.data.items;
+    }
+    if (Array.isArray(data?.items)) {
+        return data.items;
+    }
+    throw new Error("โครงสร้าง JSON ไม่ถูกต้อง ไม่พบข้อมูลรายการกิจกรรม");
+}
+
+function duration(record) {
+    if (
+        record.status !== "completed" &&
+        record.registrationStatus !== "completed"
+    ) {
+        return 0;
+    }
+
+    const startStr = record.startTime;
+    const endStr = record.endTime;
+
+    if (startStr && endStr) {
+        const toMinutes = time => {
+            const parts = String(time).split(":").map(Number);
+            if (parts.length < 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) {
+                return NaN;
+            }
+            return parts[0] * 60 + parts[1];
+        };
+
+        const start = toMinutes(startStr);
+        const end = toMinutes(endStr);
+
+        if (Number.isFinite(start) && Number.isFinite(end)) {
+            let diff = end - start;
+            if (diff < 0) {
+                diff += 1440;
+            }
+            return Math.max(0, diff);
+        }
+    }
+
+    if (record.checkInAt && record.checkOutAt) {
+        const diffMs = new Date(record.checkOutAt) - new Date(record.checkInAt);
+        return Math.max(0, Math.floor(diffMs / 60000));
+    }
+
+    return 0;
+}
+
+function formatDuration(minutes) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h} ชั่วโมง ${m} นาที`;
+}
+
+function formatDateThai(dateStr) {
+    if (!dateStr) return "-";
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString("th-TH", {
+            year: "numeric",
+            month: "short",
+            day: "numeric"
+        });
+    } catch {
+        return dateStr;
+    }
+}
+
+function save() {
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+            records,
+            apiStats
+        })
+    );
+}
+
+function merge(incoming) {
+    const map = new Map();
+
+    records.forEach(record => {
+        const key = record.registrationId || record.id;
+        if (key) {
+            map.set(String(key), record);
+        }
+    });
+
+    incoming.forEach(record => {
+        const key = record.registrationId || record.id;
+        if (!key) {
+            return;
+        }
+        map.set(String(key), record);
+    });
+
+    records = [...map.values()].sort((a, b) => {
+        const dateA = `${a.activityDate || ""} ${a.startTime || ""}`;
+        const dateB = `${b.activityDate || ""} ${b.startTime || ""}`;
+        return dateB.localeCompare(dateA);
+    });
+
+    save();
+    render();
+}
+
+function getActivityName(record) {
+    return (
+        record.title ||
+        record.activity?.nameTh ||
+        record.activityName ||
+        record.name ||
+        "-"
+    );
+}
+
+function getActivityNameEn(record) {
+    return record.activity?.nameEn || "";
+}
+
+function getActivityTypeLabel(type) {
+    const types = {
+        university: "มหาวิทยาลัย",
+        faculty: "คณะ",
+        department: "สาขาวิชา",
+        club: "ชมรม"
+    };
+    return types[type] || type || "กิจกรรมทั่วไป";
+}
+
+function getStatusLabel(status, regStatus) {
+    const s = status || regStatus;
+    const labels = {
+        completed: "เข้าร่วมสำเร็จ",
+        checked_in: "เช็กอินแล้ว",
+        registered: "ลงทะเบียนแล้ว",
+        missed_checkout: "ไม่ได้เช็กเอาต์",
+        cancelled: "ยกเลิก"
+    };
+    return labels[s] || s || "-";
+}
+
+function render() {
+    const completed = records.filter(
+        record => (record.status === "completed" || record.registrationStatus === "completed")
+    );
+
+    const totalMinutes = records.reduce(
+        (sum, record) => sum + duration(record),
+        0
+    );
+
+    $("hours").textContent = formatDuration(totalMinutes);
+    $("count").textContent = `${records.length} รายการ`;
+    $("completed").textContent = `${completed.length} รายการ`;
+
+    $("statsText").textContent = apiStats
+        ? `สถิติจากระบบ: กิจกรรมทั้งหมด ${apiStats.total ?? "-"} | เข้าร่วมสำเร็จ ${apiStats.completed ?? "-"} | ลืมเช็กเอาต์ ${apiStats.missedCheckout ?? "-"}`
+        : "คำนวณสรุปผลจากข้อมูลที่นำเข้า";
+
+    if (!records.length) {
+        $("rows").innerHTML = `
+            <tr>
+                <td colspan="6" class="empty">
+                    ยังไม่มีข้อมูล กรุณานำเข้าข้อมูล JSON ก่อน
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    $("rows").innerHTML = records.map(record => {
+        const minutes = duration(record);
+        const name = getActivityName(record);
+        const nameEn = getActivityNameEn(record);
+        const statusText = getStatusLabel(record.status, record.registrationStatus);
+        const isCompleted = (record.status === "completed" || record.registrationStatus === "completed");
+
+        return `
+            <tr>
+                <td>${esc(formatDateThai(record.activityDate))}</td>
+
+                <td>
+                    <b>${esc(name)}</b>
+                    ${nameEn ? `<div class="muted">${esc(nameEn)}</div>` : ""}
+                </td>
+
+                <td>
+                    ${esc(getActivityTypeLabel(record.activityType || record.category))}
+                </td>
+
+                <td>
+                    ${esc(record.startTime ? record.startTime.substring(0, 5) : "-")}
+                    –
+                    ${esc(record.endTime ? record.endTime.substring(0, 5) : "-")} น.
+                </td>
+
+                <td>
+                    ${minutes > 0 ? formatDuration(minutes) : "-"}
+                </td>
+
+                <td>
+                    <span class="pill ${isCompleted ? 'pill-success' : ''}">${esc(statusText)}</span>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function importObject(data, target) {
+    try {
+        const incoming = itemsFrom(data);
+
+        if (!incoming.length) {
+            throw new Error("ไม่พบรายการกิจกรรมในข้อมูล JSON");
+        }
+
+        merge(incoming);
+
+        target.textContent =
+            `นำเข้าข้อมูลสำเร็จทั้งหมด ${incoming.length} รายการ`;
+
+        target.className = "msg good";
+
+    } catch (error) {
+        target.textContent = error.message;
+        target.className = "msg bad";
+    }
+}
+
+$("importPaste").onclick = () => {
+    try {
+        const raw = $("json").value.trim();
+
+        if (!raw) {
+            throw new Error("กรุณาวางข้อความ JSON ก่อนกดปุ่มนำเข้า");
+        }
+
+        importObject(JSON.parse(raw), $("importMsg"));
+
+    } catch (error) {
+        $("importMsg").textContent =
+            "ข้อผิดพลาด: รหัส JSON ไม่ถูกต้อง (" + error.message + ")";
+
+        $("importMsg").className = "msg bad";
+    }
+};
+
+$("file").onchange = async event => {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    try {
+        const parsed = JSON.parse(await file.text());
+        importObject(parsed, $("importMsg"));
+    } catch (error) {
+        $("importMsg").textContent =
+            "อ่านไฟล์ไม่สำเร็จ: " + error.message;
+
+        $("importMsg").className = "msg bad";
+    } finally {
+        event.target.value = "";
+    }
+};
+
+$("fetch").onclick = async () => {
+    const button = $("fetch");
+    const message = $("fetchMsg");
+
+    button.disabled = true;
+
+    message.textContent = "กำลังเชื่อมต่อเพื่อดึงข้อมูล...";
+    message.className = "msg";
+
+    const allRecords = [];
+    const visitedCursors = new Set();
+
+    let cursor = null;
+    let page = 0;
+    let latestStats = null;
+
+    try {
+        while (true) {
+            page++;
+
+            const url = new URL(API);
+
+            if (cursor) {
+                url.searchParams.set("cursor", cursor);
+            }
+
+            message.textContent = `กำลังโหลดข้อมูลหน้า ${page}...`;
+
+            const response = await fetch(url.toString(), {
+                method: "GET",
+                credentials: "include",
+                headers: {
+                    Accept: "application/json"
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`เกิดข้อผิดพลาดจากเซิร์ฟเวอร์ HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            const incoming = itemsFrom(data);
+
+            allRecords.push(...incoming);
+
+            if (data?.data?.stats) {
+                latestStats = data.data.stats;
+            }
+
+            const nextCursor = data?.data?.nextCursor || null;
+
+            if (!nextCursor) {
+                break;
+            }
+
+            if (visitedCursors.has(nextCursor)) {
+                throw new Error("พบข้อมูลตำแหน่งซ้ำ หยุดการโหลดเพื่อป้องกันการวนลูป");
+            }
+
+            visitedCursors.add(nextCursor);
+            cursor = nextCursor;
+        }
+
+        if (latestStats) {
+            apiStats = latestStats;
+        }
+
+        merge(allRecords);
+
+        message.textContent =
+            `ดึงข้อมูลสำเร็จเรียบร้อย!\n` +
+            `จำนวนหน้าที่ดึงได้: ${page} หน้า\n` +
+            `รวมกิจกรรมทั้งหมด: ${allRecords.length} รายการ`;
+
+        message.className = "msg good";
+
+    } catch (error) {
+        if (allRecords.length > 0) {
+            merge(allRecords);
+        }
+
+        message.textContent =
+            `ติดปัญหาในการดึงข้อมูล (CORS / Network Error): ${error.message}\n` +
+            `คำแนะนำ: ให้คัดลอก JSON มาวางในช่องส่วนที่ 2 แทนยะ!`;
+
+        message.className = "msg bad";
+
+    } finally {
+        button.disabled = false;
+    }
+};
+
+$("clear").onclick = () => {
+    if (!confirm("คุณต้องการล้างข้อมูลกิจกรรมทั้งหมดที่บันทึกไว้ใช่หรือไม่?")) {
+        return;
+    }
+
+    records = [];
+    apiStats = null;
+
+    localStorage.removeItem(STORAGE_KEY);
+
+    render();
+
+    $("json").value = "";
+    $("fetchMsg").textContent = "";
+    $("importMsg").textContent = "";
+};
+
+$("csv").onclick = () => {
+    const columns = [
+        "activityDate",
+        "activityName",
+        "activityType",
+        "startTime",
+        "endTime",
+        "duration",
+        "status",
+        "registrationId"
+    ];
+
+    const lines = [
+        ["วันที่จัดกิจกรรม", "ชื่อกิจกรรม", "ประเภทกิจกรรม", "เวลาเริ่ม", "เวลาสิ้นสุด", "ระยะเวลารวม", "สถานะ", "รหัสลงทะเบียน"].join(","),
+
+        ...records.map(record => {
+            return columns.map(key => {
+                let value = "";
+
+                switch (key) {
+                    case "activityDate":
+                        value = formatDateThai(record.activityDate);
+                        break;
+
+                    case "activityName":
+                        value = getActivityName(record);
+                        break;
+
+                    case "activityType":
+                        value = getActivityTypeLabel(record.activityType || record.category);
+                        break;
+
+                    case "duration":
+                        value = formatDuration(duration(record));
+                        break;
+
+                    case "status":
+                        value = getStatusLabel(record.status, record.registrationStatus);
+                        break;
+
+                    default:
+                        value = record[key] ?? "";
+                }
+
+                return '"' +
+                    String(value).replace(/"/g, '""') +
+                    '"';
+
+            }).join(",");
+        })
+    ];
+
+    const blob = new Blob(
+        ["\ufeff" + lines.join("\n")],
+        { type: "text/csv;charset=utf-8" }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = "สรุปประวัติกิจกรรม_ARU.csv";
+    a.click();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+try {
+    const saved = JSON.parse(
+        localStorage.getItem(STORAGE_KEY) || "null"
+    );
+
+    if (saved) {
+        records = Array.isArray(saved.records)
+            ? saved.records
+            : [];
+
+        apiStats = saved.apiStats || null;
+    }
+} catch (error) {
+    console.error("Local Storage error:", error);
+    records = [];
+    apiStats = null;
+}
+
+render();
+
+})();
+</script>
+</body>
+</html>
