@@ -41,6 +41,30 @@
         return html;
     }
 
+    function renderInfo(m, T) {
+        var rows = T.infoOnly.filter(function (k) { return m[k]; }).map(function (k) {
+            return '<div><dt>' + esc(T.info[k]) + '</dt><dd>' + esc(m[k]) + '</dd></div>';
+        });
+        if (m.themes && m.themes.length) {
+            rows.push('<div><dt>' + esc(T.info.themes) + '</dt><dd>' + m.themes.map(esc).join(', ') + '</dd></div>');
+        }
+        if (!rows.length) return '';
+        return '<section><div class="sec-h"><h2>ข้อมูล</h2></div><dl class="credits info">' + rows.join('') + '</dl></section>';
+    }
+
+    function renderSeasons(m, T) {
+        var list = m.seasons || [];
+        if (list.length < 2) return '';
+        var chips = list.map(function (s, i) {
+            var label = s.season_label || (T.seasonWord + ' ' + (i + 1));
+            var cur = String(s._id) === String(m._id);
+            return cur
+                ? '<span class="chip season-cur" aria-current="page">' + esc(label) + '</span>'
+                : '<a class="chip" href="/detail?id=' + encodeURIComponent(s._id) + '" title="' + esc(s.th_name || s.title || '') + '">' + esc(label) + '</a>';
+        }).join('');
+        return '<section><div class="sec-h"><h2>' + esc(m.series) + ' — ' + esc(T.seasonWord) + 'อื่นๆ</h2></div><div class="chips seasons">' + chips + '</div></section>';
+    }
+
     function favLabel(on) { return on ? 'อยู่ในรายการโปรดแล้ว' : 'บันทึกเป็นรายการโปรด'; }
 
     function render() {
@@ -105,11 +129,13 @@
                         (m.tags || []).map(function (t) { return '<a class="tag" href="/?tag=' + encodeURIComponent(t) + '">' + esc(t) + '</a>'; }).join('') +
                     '</div>' +
                     '<section><div class="sec-h"><h2>เรื่องย่อ</h2></div><p class="synopsis">' + esc(m.description || 'ยังไม่มีเรื่องย่อ') + '</p></section>' +
+                    renderSeasons(m, T) +
                     '<dl class="credits">' +
                         '<div><dt>' + esc(T.authorRole) + '</dt><dd>' + esc(m.author || '-') + '</dd></div>' +
                         (T.key === 'anime' ? '' : '<div><dt>ผู้วาด</dt><dd>' + esc(m.artist || '-') + '</dd></div>') +
                         '<div><dt>' + esc(T.creditRole) + '</dt><dd>' + translator + '</dd></div>' +
                     '</dl>' +
+                    renderInfo(m, T) +
                     chaptersHtml +
                 '</div>' +
             '</div>';

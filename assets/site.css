@@ -399,3 +399,7 @@ dialog.sheet .stack { gap: 1rem; }
 .tag-type { background: var(--accent); color: var(--on-accent); border-color: var(--frame); }
 @media (prefers-reduced-motion: reduce) { .seg-btn { transition: none; } }
 .row-title .tag-type { min-height: 0; padding: .05rem .45rem; font-size: .6875rem; vertical-align: middle; }
+.seasons { flex-wrap: wrap; overflow: visible; }
+a.chip { text-decoration: none; display: inline-flex; align-items: center; }
+.season-cur { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.info { margin-top: 0; }

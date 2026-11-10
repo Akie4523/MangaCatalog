@@ -116,10 +116,14 @@
     var TYPES = {
         manga: { key: 'manga', label: 'มังงะ', plural: 'มังงะ', unit: 'เรื่อง', creditRole: 'ผู้แปล / ค่ายแปล', creditLink: 'ลิงก์ค่ายแปล',
                  read: 'อ่านแปลไทย', readEn: 'อ่านภาษาอังกฤษ', readRaw: 'ต้นฉบับ (Raw)', group: 'อ่านออนไลน์', buyGroup: 'ซื้อลิขสิทธิ์',
-                 epWord: 'ตอนที่ ', epHead: 'รายชื่อตอน (Facebook)', authorRole: 'ผู้แต่ง', newTitle: 'เพิ่มมังงะใหม่' },
+                 epWord: 'ตอนที่ ', epHead: 'รายชื่อตอน (Facebook)', authorRole: 'ผู้แต่ง', newTitle: 'เพิ่มมังงะใหม่',
+                 info: { format: 'ประเภท', episodes: 'จำนวนตอน/เล่ม', air_status: 'สถานะ', aired: 'ช่วงที่เผยแพร่', producers: 'สำนักพิมพ์', licensors: 'ผู้ถือลิขสิทธิ์ไทย', age_rating: 'เรทอายุ', themes: 'ธีม' },
+                 infoOnly: ['format', 'episodes', 'air_status', 'aired', 'producers', 'licensors', 'age_rating'], seasonWord: 'ภาค', producersLabel: 'สำนักพิมพ์' },
         anime: { key: 'anime', label: 'อนิเมะ', plural: 'อนิเมะ', unit: 'เรื่อง', creditRole: 'สตูดิโอ', creditLink: 'ลิงก์สตูดิโอ / เว็บทางการ',
                  read: 'ดูซับไทย', readEn: 'ดูซับอังกฤษ', readRaw: 'ต้นฉบับ (Raw)', group: 'ดูออนไลน์', buyGroup: 'ช่องทางถูกลิขสิทธิ์',
-                 epWord: 'EP ', epHead: 'รายชื่อตอน (Facebook)', authorRole: 'ต้นฉบับ / ผู้แต่ง', newTitle: 'เพิ่มอนิเมะใหม่' }
+                 epWord: 'EP ', epHead: 'รายชื่อตอน (Facebook)', authorRole: 'ต้นฉบับ / ผู้แต่ง', newTitle: 'เพิ่มอนิเมะใหม่',
+                 info: { format: 'ประเภท', episodes: 'จำนวนตอน', air_status: 'สถานะ', aired: 'ออกอากาศ', premiered: 'ซีซันที่เริ่ม', broadcast: 'เวลาออกอากาศ', producers: 'ผู้ผลิต', licensors: 'ผู้ถือลิขสิทธิ์', source: 'ต้นเรื่อง', duration: 'ความยาว', age_rating: 'เรทอายุ', themes: 'ธีม' },
+                 infoOnly: ['format', 'episodes', 'air_status', 'aired', 'premiered', 'broadcast', 'producers', 'licensors', 'source', 'duration', 'age_rating'], seasonWord: 'ซีซัน', producersLabel: 'ผู้ผลิต (Producers)' }
     };
     function typeOf(m) { return (m && m.type === 'anime') ? TYPES.anime : TYPES.manga; }
 

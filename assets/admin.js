@@ -5,7 +5,9 @@
 
     var TEXT_FIELDS = ['th_name', 'en_name', 'jp_name', 'cover', 'rating', 'description', 'author', 'artist',
         'translator', 'translator_link', 'thai_url', 'thai_url_Buy', 'eng_url', 'eng_url_Buy',
-        'original_url', 'original_url_Buy', 'facebook_post_url'];
+        'original_url', 'original_url_Buy', 'facebook_post_url',
+        'format', 'episodes', 'air_status', 'aired', 'premiered', 'broadcast', 'producers', 'licensors', 'source', 'duration', 'age_rating',
+        'series', 'season_label', 'season_order'];
 
     var list = [];
     var pendingDelete = null;
@@ -190,7 +192,11 @@
 
     function loadList() {
         return MC.api('/manga').then(function (r) {
-            if (r.ok && Array.isArray(r.data)) { list = r.data; renderRows(); }
+            if (r.ok && Array.isArray(r.data)) {
+                list = r.data; renderRows();
+                var names = {}; list.forEach(function (m) { if (m.series) names[m.series] = 1; });
+                MC.$('#dl-series').innerHTML = Object.keys(names).sort().map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+            }
             else rowsEl.innerHTML = '<li class="note" data-kind="error">โหลดรายการไม่สำเร็จ</li>';
         });
     }
@@ -266,6 +272,7 @@
                 MC.$('#' + f).value = asText(d[f]) || (f === 'th_name' ? asText(d.title) : '');
             });
             MC.$('#tags').value = tagsToText(d.tags);
+            MC.$('#themes').value = tagsToText(d.themes);
             renderChapterRows(d.chapters);
             MC.$('#form-title').textContent = 'แก้ไข: ' + (d.th_name || d.title || 'เรื่องนี้');
             setCoverPreview();
@@ -302,6 +309,7 @@
         .map(function (t) { return t.trim(); })
         .filter(Boolean);
 
+    payload.themes = MC.$('#themes').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
     payload.chapters = collectChapters();
 
     // DEBUG: ตรวจสอบข้อมูลก่อนส่ง
