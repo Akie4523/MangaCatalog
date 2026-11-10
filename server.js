@@ -111,7 +111,7 @@ const { Client, GatewayIntentBits } = require('discord.js');
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const MY_OWNER_ID = '767330467329343528';
-const TRAP_CHANNELS = ['1498735590596804721', '1498741392770465864'];
+const TRAP_CHANNELS = ['1498735590596804721', '1498741392770465864', '1569662134969831515'];
 
 const client = new Client({
     intents: [
