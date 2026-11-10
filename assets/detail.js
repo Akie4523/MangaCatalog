@@ -85,7 +85,10 @@
         var jumpChaptersBtn = hasChapters ? '<button class="btn btn-block btn-ghost mobile-only" id="jump-chapters" type="button">' + icon('book') + '<span>ไปยังรายชื่อตอน (' + m.chapters.length + ')</span></button>' : '';
 
         var anime = T.key === 'anime';
-        var buy = linkBtn(m.thai_url_Buy, anime ? 'สตรีมถูกลิขสิทธิ์ (ไทย)' : 'ซื้อฉบับไทย', 'btn-buy', 'cart') +
+        var legal = (m.legal_links || []).map(function (l) {
+            return linkBtn(l.url, l.label || (anime ? 'ช่องทางถูกลิขสิทธิ์' : 'ซื้อ / อ่านถูกลิขสิทธิ์'), 'btn-buy', 'cart');
+        }).join('');
+        var buy = legal + linkBtn(m.thai_url_Buy, anime ? 'สตรีมถูกลิขสิทธิ์ (ไทย)' : 'ซื้อฉบับไทย', 'btn-buy', 'cart') +
             linkBtn(m.eng_url_Buy, anime ? 'สตรีมถูกลิขสิทธิ์ (สากล)' : 'ซื้อฉบับอังกฤษ', 'btn-buy', 'cart') +
             linkBtn(m.original_url_Buy, anime ? 'ช่องทางต้นฉบับ (ญี่ปุ่น)' : 'ซื้อฉบับต้นฉบับ', 'btn-buy', 'cart');
 

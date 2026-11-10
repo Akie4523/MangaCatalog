@@ -155,6 +155,42 @@
     }
     form.addEventListener('change', function (e) { if (e.target.name === 'type') applyType(); });
 
+    // ---------- Legal links (หลายช่องทาง) ----------
+    var legalRows = MC.$('#legal-rows');
+    function addLegalRow(label, url) {
+        var row = document.createElement('div');
+        row.className = 'chapter-row';
+        var l = document.createElement('input');
+        l.type = 'text'; l.className = 'input'; l.maxLength = 60; l.value = label || '';
+        l.placeholder = 'ช่องทาง เช่น Netflix'; l.setAttribute('aria-label', 'ชื่อช่องทาง'); l.dataset.legalLabel = '1';
+        l.setAttribute('list', 'dl-platform');
+        var u = document.createElement('input');
+        u.type = 'url'; u.className = 'input'; u.value = url || '';
+        u.placeholder = 'https://...'; u.setAttribute('aria-label', 'ลิงก์ช่องทาง'); u.dataset.legalUrl = '1';
+        var rm = document.createElement('button');
+        rm.type = 'button'; rm.className = 'btn btn-sm'; rm.textContent = 'ลบ'; rm.setAttribute('aria-label', 'ลบช่องทางนี้');
+        row.append(l, u, rm);
+        legalRows.appendChild(row);
+    }
+    function renderLegalRows(items) {
+        legalRows.replaceChildren();
+        (Array.isArray(items) ? items : []).forEach(function (x) { if (x && typeof x === 'object') addLegalRow(x.label, x.url); });
+        if (!legalRows.children.length) addLegalRow('', '');
+    }
+    function collectLegal() {
+        return Array.from(legalRows.children).map(function (row) {
+            return { label: row.querySelector('[data-legal-label]').value.trim(), url: row.querySelector('[data-legal-url]').value.trim() };
+        }).filter(function (x) { return x.url !== ''; });
+    }
+    renderLegalRows([]);
+    MC.$('#legal-add').addEventListener('click', function () { addLegalRow('', ''); });
+    legalRows.addEventListener('click', function (e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+        btn.closest('.chapter-row').remove();
+        if (!legalRows.children.length) addLegalRow('', '');
+    });
+
     // ---------- Tabs ----------
     function showTab(name) {
         var isList = name === 'list';
@@ -243,6 +279,7 @@
     editId.value = '';
     applyType();
     renderChapterRows([]);
+    renderLegalRows([]);
     chapterBulk.value = '';
     setCoverPreview();
 }
@@ -274,6 +311,7 @@
             MC.$('#tags').value = tagsToText(d.tags);
             MC.$('#themes').value = tagsToText(d.themes);
             renderChapterRows(d.chapters);
+            renderLegalRows(d.legal_links);
             MC.$('#form-title').textContent = 'แก้ไข: ' + (d.th_name || d.title || 'เรื่องนี้');
             setCoverPreview();
             showTab('form');
@@ -311,6 +349,7 @@
 
     payload.themes = MC.$('#themes').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
     payload.chapters = collectChapters();
+    payload.legal_links = collectLegal();
 
     // DEBUG: ตรวจสอบข้อมูลก่อนส่ง
     console.log('[DEBUG] chapters:', payload.chapters);

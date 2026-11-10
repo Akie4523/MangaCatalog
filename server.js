@@ -274,6 +274,11 @@ const Manga = mongoose.model('Manga', new mongoose.Schema({
     format: String, episodes: String, air_status: String, aired: String, premiered: String, broadcast: String,
     producers: String, licensors: String, source: String, duration: String, age_rating: String,
     themes: { type: [String], default: [] },
+    // ช่องทางถูกลิขสิทธิ์หลายลิงก์ พร้อมชื่อช่องทาง (เช่น Netflix, Bilibili, Amazon)
+    legal_links: {
+        type: [{ _id: false, label: { type: String, default: '' }, url: { type: String, required: true } }],
+        default: []
+    },
     // จัดกลุ่มซีซัน/ภาค: เรื่องที่ series ชื่อเดียวกันจะลิงก์หากันในหน้ารายละเอียดโดยอัตโนมัติ
     series: { type: String, default: '' },
     season_label: { type: String, default: '' },
@@ -492,6 +497,20 @@ function cleanMangaInput(body) {
         chapters.push({ label, url: u.href });
     }
     out.chapters = chapters;
+
+    const rawLegal = body.legal_links === undefined ? [] : body.legal_links;
+    if (!Array.isArray(rawLegal) || rawLegal.length > 50) return { error: 'รายการช่องทางถูกลิขสิทธิ์ไม่ถูกต้อง (สูงสุด 50 ช่องทาง)' };
+    const legal = [];
+    for (const l of rawLegal) {
+        if (!l || typeof l !== 'object' || Array.isArray(l)) return { error: 'ข้อมูลช่องทางถูกลิขสิทธิ์ไม่ถูกต้อง' };
+        const rawUrl = typeof l.url === 'string' ? l.url.trim() : '';
+        if (!rawUrl) continue;
+        if (rawUrl.length > 2048) return { error: 'ลิงก์ช่องทางถูกลิขสิทธิ์ยาวเกินไป' };
+        const u = parseHttpUrl(rawUrl);
+        if (!u) return { error: 'ลิงก์ "' + rawUrl.slice(0, 60) + '" ต้องขึ้นต้นด้วย http:// หรือ https://' };
+        legal.push({ label: typeof l.label === 'string' ? l.label.trim().slice(0, 60) : '', url: u.href });
+    }
+    out.legal_links = legal;
 
     if (!out.th_name) return { error: 'กรุณากรอกชื่อภาษาไทย' };
     out.title = out.title || out.th_name;
