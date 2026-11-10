@@ -249,6 +249,8 @@ const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch
 // ==========================================
 const Manga = mongoose.model('Manga', new mongoose.Schema({
     id: String,
+    // หมวด: manga | anime (เรื่องเก่าที่ไม่มีค่านี้ถือเป็น manga) — anime ใช้ฟิลด์ translator/translator_link เก็บ "สตูดิโอ"
+    type: { type: String, enum: ['manga', 'anime'], default: 'manga' },
     title: String,
     cover: String,
     description: String,
@@ -440,6 +442,10 @@ function cleanMangaInput(body) {
         if (!u) return { error: `ลิงก์ ${key} ต้องขึ้นต้นด้วย http:// หรือ https://` };
         out[key] = u.href;
     }
+
+    const type = body.type === undefined || body.type === '' ? 'manga' : body.type;
+    if (type !== 'manga' && type !== 'anime') return { error: 'หมวดไม่ถูกต้อง' };
+    out.type = type;
 
     const tags = body.tags === undefined ? [] : body.tags;
     if (!Array.isArray(tags) || tags.length > 30 || tags.some(t => typeof t !== 'string' || t.length > 40)) {
@@ -650,10 +656,13 @@ app.get('/auth/google/callback', googleLimiter, wrap(async (req, res) => {
 }));
 
 // --- Manga (อ่านได้ทุกคน / แก้ไขได้เฉพาะแอดมิน) ---
-const LIST_FIELDS = '_id id title th_name en_name jp_name cover author tags rating';
+const LIST_FIELDS = '_id id type title th_name en_name jp_name cover author tags rating';
 
 app.get('/manga', wrap(async (req, res) => {
-    res.json(await Manga.find().select(LIST_FIELDS).sort({ _id: -1 }).lean());
+    // ?type=anime|manga (manga รวมเรื่องเก่าที่ยังไม่มีฟิลด์ type) — ไม่ระบุ = ทุกหมวด
+    const t = req.query.type;
+    const filter = t === 'anime' ? { type: 'anime' } : t === 'manga' ? { type: { $ne: 'anime' } } : {};
+    res.json(await Manga.find(filter).select(LIST_FIELDS).sort({ _id: -1 }).lean());
 }));
 
 app.get('/api/manga/:id', wrap(async (req, res) => {

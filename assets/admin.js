@@ -111,7 +111,7 @@
             }
 
             if (!label) {
-                label = 'ตอนที่ ' + (collectChapters().length + imported.length + 1);
+                label = MC.TYPES[currentType()].epWord + (collectChapters().length + imported.length + 1);
             }
 
             imported.push({ label: label, url: url });
@@ -137,6 +137,22 @@
     });
 
 
+    // ---------- Type (manga / anime) ----------
+    function currentType() { var r = form.querySelector('input[name="type"]:checked'); return r ? r.value : 'manga'; }
+    function setType(t) {
+        var r = form.querySelector('input[name="type"][value="' + (t === 'anime' ? 'anime' : 'manga') + '"]');
+        if (r) r.checked = true;
+        applyType();
+    }
+    function applyType() {
+        var T = MC.TYPES[currentType()];
+        MC.$$('[data-t]', form).forEach(function (el) { el.textContent = T[el.dataset.t]; });
+        MC.$$('[data-only]', form).forEach(function (el) { el.classList.toggle('hide', el.dataset.only !== T.key); });
+        if (!editId.value) MC.$('#form-title').textContent = T.newTitle;
+        MC.$('#chapter-bulk').placeholder = T.epWord + '12 | https://facebook.com/...\nhttps://facebook.com/...';
+    }
+    form.addEventListener('change', function (e) { if (e.target.name === 'type') applyType(); });
+
     // ---------- Tabs ----------
     function showTab(name) {
         var isList = name === 'list';
@@ -155,7 +171,7 @@
             return !q || [m.th_name, m.title, m.en_name, m.jp_name].some(function (v) { return v && String(v).toLowerCase().indexOf(q) !== -1; });
         });
         if (!items.length) {
-            rowsEl.innerHTML = '<li class="note">' + (list.length ? 'ไม่พบเรื่องที่ค้นหา' : 'ยังไม่มีมังงะในระบบ กดแท็บ "เพิ่ม / แก้ไข" เพื่อเพิ่มเรื่องแรก') + '</li>';
+            rowsEl.innerHTML = '<li class="note">' + (list.length ? 'ไม่พบเรื่องที่ค้นหา' : 'ยังไม่มีรายการในระบบ กดแท็บ "เพิ่ม / แก้ไข" เพื่อเพิ่มเรื่องแรก') + '</li>';
             return;
         }
         rowsEl.innerHTML = items.map(function (m) {
@@ -163,7 +179,7 @@
             var cover = MC.safeUrl(m.cover);
             return '<li class="row">' +
                 '<span class="thumb">' + (cover ? '<img src="' + esc(cover) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '') + '</span>' +
-                '<div><div class="row-title">' + esc(name) + '</div><div class="row-sub">' + esc(m.author || 'ไม่ระบุผู้แต่ง') + '</div></div>' +
+                '<div><div class="row-title">' + (m.type === 'anime' ? '<span class="tag tag-type">อนิเมะ</span> ' : '') + esc(name) + '</div><div class="row-sub">' + esc(m.author || 'ไม่ระบุผู้แต่ง') + '</div></div>' +
                 '<div class="row-actions">' +
                     '<a class="icon-btn" href="/detail?id=' + encodeURIComponent(m._id) + '" aria-label="ดูหน้ารายละเอียด: ' + esc(name) + '">' + icon('external') + '</a>' +
                     '<button class="icon-btn" type="button" data-edit="' + esc(m._id) + '" aria-label="แก้ไข: ' + esc(name) + '">' + icon('edit') + '</button>' +
@@ -219,7 +235,7 @@
     function resetForm() {
     HTMLFormElement.prototype.reset.call(form);
     editId.value = '';
-    MC.$('#form-title').textContent = 'เพิ่มมังงะใหม่';
+    applyType();
     renderChapterRows([]);
     chapterBulk.value = '';
     setCoverPreview();
@@ -245,6 +261,7 @@
             var d = r.data;
             resetForm();
             editId.value = d._id;
+            setType(d.type);
             TEXT_FIELDS.forEach(function (f) {
                 MC.$('#' + f).value = asText(d[f]) || (f === 'th_name' ? asText(d.title) : '');
             });
@@ -278,6 +295,7 @@
         payload[f] = MC.$('#' + f).value.trim();
     });
 
+    payload.type = currentType();
     payload.title = payload.th_name;
     payload.tags = MC.$('#tags').value
         .split(',')

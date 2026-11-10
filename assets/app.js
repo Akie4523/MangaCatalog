@@ -112,6 +112,17 @@
         return f.indexOf(String(m._id)) !== -1 || (!!m.id && f.indexOf(String(m.id)) !== -1);
     }
 
+    // ข้อความที่ต่างกันระหว่างหมวด — ทุกหน้าอ่านจากที่นี่ที่เดียว
+    var TYPES = {
+        manga: { key: 'manga', label: 'มังงะ', plural: 'มังงะ', unit: 'เรื่อง', creditRole: 'ผู้แปล / ค่ายแปล', creditLink: 'ลิงก์ค่ายแปล',
+                 read: 'อ่านแปลไทย', readEn: 'อ่านภาษาอังกฤษ', readRaw: 'ต้นฉบับ (Raw)', group: 'อ่านออนไลน์', buyGroup: 'ซื้อลิขสิทธิ์',
+                 epWord: 'ตอนที่ ', epHead: 'รายชื่อตอน (Facebook)', authorRole: 'ผู้แต่ง', newTitle: 'เพิ่มมังงะใหม่' },
+        anime: { key: 'anime', label: 'อนิเมะ', plural: 'อนิเมะ', unit: 'เรื่อง', creditRole: 'สตูดิโอ', creditLink: 'ลิงก์สตูดิโอ / เว็บทางการ',
+                 read: 'ดูซับไทย', readEn: 'ดูซับอังกฤษ', readRaw: 'ต้นฉบับ (Raw)', group: 'ดูออนไลน์', buyGroup: 'ช่องทางถูกลิขสิทธิ์',
+                 epWord: 'EP ', epHead: 'รายชื่อตอน (Facebook)', authorRole: 'ต้นฉบับ / ผู้แต่ง', newTitle: 'เพิ่มอนิเมะใหม่' }
+    };
+    function typeOf(m) { return (m && m.type === 'anime') ? TYPES.anime : TYPES.manga; }
+
     function bookCard(m, faved, index) {
         var id = m._id || m.id;
         var name = m.th_name || m.title || 'ไม่มีชื่อ';
@@ -123,8 +134,9 @@
             '<a class="book-link" href="/detail?id=' + encodeURIComponent(id) + '">' +
                 '<span class="cover">' + (cover ? '<img src="' + esc(cover) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">' : '') + '</span>' +
                 '<span class="book-title">' + esc(name) + '</span>' +
-                '<span class="book-by">' + esc(m.author || 'ไม่ระบุผู้แต่ง') + '</span>' +
+                '<span class="book-by">' + esc(m.author || (typeOf(m).key === 'anime' ? 'ไม่ระบุต้นฉบับ' : 'ไม่ระบุผู้แต่ง')) + '</span>' +
             '</a>' +
+            (typeOf(m).key === 'anime' ? '<span class="type-badge">อนิเมะ</span>' : '') +
             '<button class="fav" type="button" data-fav="' + esc(id) + '" aria-pressed="' + (faved ? 'true' : 'false') + '" aria-label="' + esc(label) + '">' + icon('heart', 'i-heart') + '</button>' +
         '</article>';
     }
@@ -205,7 +217,7 @@
                 acct.innerHTML =
                     '<details class="menu"><summary class="navlink" aria-label="เมนูบัญชี">' + icon('user') + '<span class="nav-t">' + esc(user.username) + '</span></summary>' +
                     '<div class="menu-pop">' +
-                        (user.role === 'admin' ? '<a href="/admin">' + icon('shield') + 'จัดการมังงะ</a>' : '') +
+                        (user.role === 'admin' ? '<a href="/admin">' + icon('shield') + 'จัดการข้อมูล</a>' : '') +
                         '<button type="button" id="logout-btn">' + icon('logout') + 'ออกจากระบบ</button>' +
                     '</div></details>';
                 document.getElementById('logout-btn').addEventListener('click', function () {
@@ -238,7 +250,7 @@
 
     window.MC = {
         $: $, $$: $$, esc: esc, safeUrl: safeUrl, safeNext: safeNext, debounce: debounce,
-        api: api, me: me, toast: toast, icon: icon,
+        api: api, me: me, toast: toast, icon: icon, TYPES: TYPES, typeOf: typeOf,
         isFav: isFav, bookCard: bookCard, toggleFav: toggleFav, paintFav: paintFav
     };
 })();
