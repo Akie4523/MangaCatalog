@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>จัดการมังงะ — MangaCatalog</title>
+    <title>จัดการข้อมูล — MangaCatalog</title>
     <meta name="robots" content="noindex, nofollow">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,8 +22,8 @@
 
     <main id="main" class="wrap">
         <div class="page-h">
-            <h1>จัดการมังงะ</h1>
-            <p>เพิ่ม แก้ไข หรือลบข้อมูลมังงะในไดเรกทอรี</p>
+            <h1>จัดการข้อมูล</h1>
+            <p>เพิ่ม แก้ไข หรือลบข้อมูลมังงะและอนิเมะในไดเรกทอรี</p>
         </div>
 
         <div id="denied" class="note hide" role="alert"></div>
@@ -46,7 +46,15 @@
             <section id="panel-form" role="tabpanel" aria-labelledby="tab-form" class="hide">
                 <form id="manga-form" novalidate>
                     <input type="hidden" id="editId">
-                    <h2 id="form-title" class="sr">เพิ่มมังงะใหม่</h2>
+                    <h2 id="form-title" class="sr">เพิ่มรายการใหม่</h2>
+
+                    <fieldset class="group">
+                        <legend>หมวด</legend>
+                        <div class="seg" role="radiogroup" aria-label="หมวดของเรื่องนี้">
+                            <label class="seg-btn"><input type="radio" name="type" value="manga" checked><span>มังงะ</span></label>
+                            <label class="seg-btn"><input type="radio" name="type" value="anime"><span>อนิเมะ</span></label>
+                        </div>
+                    </fieldset>
 
                     <fieldset class="group">
                         <legend>ชื่อเรื่อง</legend>
@@ -85,25 +93,59 @@
                     <fieldset class="group">
                         <legend>ทีมงาน</legend>
                         <div class="grid-2">
-                            <div class="field"><label for="author">ผู้แต่ง</label><input class="input" id="author" maxlength="200"></div>
-                            <div class="field"><label for="artist">ผู้วาด</label><input class="input" id="artist" maxlength="200"></div>
-                            <div class="field"><label for="translator">ผู้แปล / ค่ายแปล</label><input class="input" id="translator" maxlength="200"></div>
-                            <div class="field"><label for="translator_link">ลิงก์ค่ายแปล</label><input class="input" id="translator_link" type="url" inputmode="url"></div>
+                            <div class="field"><label for="author" data-t="authorRole">ผู้แต่ง</label><input class="input" id="author" maxlength="200"></div>
+                            <div class="field" data-only="manga"><label for="artist">ผู้วาด</label><input class="input" id="artist" maxlength="200"></div>
+                            <div class="field"><label for="translator" data-t="creditRole">ผู้แปล / ค่ายแปล</label><input class="input" id="translator" maxlength="200"></div>
+                            <div class="field"><label for="translator_link" data-t="creditLink">ลิงก์ค่ายแปล</label><input class="input" id="translator_link" type="url" inputmode="url"></div>
                         </div>
                     </fieldset>
 
                     <fieldset class="group">
-                        <legend>ลิงก์อ่าน</legend>
+                        <legend>ข้อมูลเพิ่มเติม</legend>
+                        <div class="grid-3">
+                            <div class="field"><label for="format">ประเภท</label><input class="input" id="format" maxlength="40" list="dl-format" placeholder="TV, Movie, OVA / Manga, Manhwa, Webtoon"><datalist id="dl-format"><option value="TV"><option value="Movie"><option value="OVA"><option value="ONA"><option value="Special"><option value="Manga"><option value="Manhwa"><option value="Manhua"><option value="Webtoon"><option value="Light Novel"></datalist></div>
+                            <div class="field"><label for="episodes">จำนวนตอน / เล่ม</label><input class="input" id="episodes" maxlength="40" placeholder="เช่น 11"></div>
+                            <div class="field"><label for="air_status">สถานะ</label><input class="input" id="air_status" maxlength="60" list="dl-status" placeholder="เช่น Finished Airing"><datalist id="dl-status"><option value="Finished Airing"><option value="Currently Airing"><option value="Not yet aired"><option value="จบแล้ว"><option value="กำลังเผยแพร่"><option value="พักการเผยแพร่"></datalist></div>
+                            <div class="field"><label for="aired">ช่วงที่ออกอากาศ / เผยแพร่</label><input class="input" id="aired" maxlength="80" placeholder="Apr 11, 2021 to Jun 20, 2021"></div>
+                            <div class="field" data-only="anime"><label for="premiered">ซีซันที่เริ่ม</label><input class="input" id="premiered" maxlength="60" placeholder="Spring 2021"></div>
+                            <div class="field" data-only="anime"><label for="broadcast">เวลาออกอากาศ</label><input class="input" id="broadcast" maxlength="80" placeholder="Sundays at 00:00 (JST)"></div>
+                            <div class="field"><label for="producers" data-t="producersLabel">ผู้ผลิต / สำนักพิมพ์</label><input class="input" id="producers" maxlength="300" placeholder="คั่นด้วยจุลภาค"></div>
+                            <div class="field"><label for="licensors">ผู้ถือลิขสิทธิ์</label><input class="input" id="licensors" maxlength="300"></div>
+                            <div class="field" data-only="anime"><label for="source">ต้นเรื่อง</label><input class="input" id="source" maxlength="60" placeholder="Light novel, Manga, Original"></div>
+                            <div class="field" data-only="anime"><label for="duration">ความยาวต่อตอน</label><input class="input" id="duration" maxlength="60" placeholder="23 min. per ep."></div>
+                            <div class="field"><label for="age_rating">เรทอายุ</label><input class="input" id="age_rating" maxlength="60" placeholder="R - 17+"></div>
+                            <div class="field"><label for="themes">ธีม</label><input class="input" id="themes" placeholder="Mecha, Military"></div>
+                        </div>
+                        <p class="hint">Genres ใช้ช่อง "แท็ก" ด้านบน ส่วน Studios ใช้ช่องในกลุ่ม "ทีมงาน"</p>
+                    </fieldset>
+
+                    <fieldset class="group">
+                        <legend>ซีรีส์ / ซีซัน</legend>
+                        <p class="hint">เรื่องที่ใส่ "ชื่อซีรีส์" เดียวกันจะมีลิงก์ข้ามไปหากันในหน้ารายละเอียดอัตโนมัติ เช่น ซีซัน 1 / ซีซัน 2 / ภาคหนัง — ใส่ชื่อซีรีส์เหมือนกันทุกภาค แล้วตั้งชื่อภาคกับลำดับ</p>
+                        <div class="grid-3">
+                            <div class="field"><label for="series">ชื่อซีรีส์</label><input class="input" id="series" maxlength="200" list="dl-series" autocomplete="off"><datalist id="dl-series"></datalist></div>
+                            <div class="field"><label for="season_label">ชื่อภาค / ซีซัน</label><input class="input" id="season_label" maxlength="60" placeholder="SS1, SS2, Movie"></div>
+                            <div class="field"><label for="season_order">ลำดับ</label><input class="input" id="season_order" type="number" min="0" max="9999" step="1" placeholder="1, 2, 3..."></div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="group">
+                        <legend data-t="group">ลิงก์อ่าน</legend>
                         <div class="grid-2">
-                            <div class="field"><label for="thai_url">อ่านแปลไทย</label><input class="input" id="thai_url" type="url" inputmode="url"></div>
-                            <div class="field"><label for="eng_url">อ่านภาษาอังกฤษ</label><input class="input" id="eng_url" type="url" inputmode="url"></div>
+                            <div class="field"><label for="thai_url" data-t="read">อ่านแปลไทย</label><input class="input" id="thai_url" type="url" inputmode="url"></div>
+                            <div class="field"><label for="eng_url" data-t="readEn">อ่านภาษาอังกฤษ</label><input class="input" id="eng_url" type="url" inputmode="url"></div>
                             <div class="field"><label for="original_url">ต้นฉบับ (Raw)</label><input class="input" id="original_url" type="url" inputmode="url"></div>
                             <div class="field"><label for="facebook_post_url">โพสต์ Facebook</label><input class="input" id="facebook_post_url" type="url" inputmode="url"></div>
                         </div>
                     </fieldset>
 
                     <fieldset class="group">
-                        <legend>ลิงก์ซื้อลิขสิทธิ์</legend>
+                        <legend data-t="buyGroup">ลิงก์ซื้อลิขสิทธิ์</legend>
+                        <p class="hint">เพิ่มได้หลายช่องทาง พร้อมชื่อช่องทาง เช่น Netflix, Crunchyroll, Bilibili, Amazon, ร้านหนังสือ</p>
+                        <datalist id="dl-platform"><option value="Netflix"><option value="Crunchyroll"><option value="Bilibili"><option value="Disney+ Hotstar"><option value="Prime Video"><option value="iQIYI"><option value="WeTV"><option value="Muse Thailand"><option value="Ani-One"><option value="YouTube"><option value="Amazon"><option value="LINE Webtoon"><option value="Ookbee"><option value="MEB"></datalist>
+                        <div id="legal-rows" class="chapter-rows"></div>
+                        <button class="btn btn-sm mt" id="legal-add" type="button"><span>+ เพิ่มช่องทาง</span></button>
+                        <p class="hint mt">หรือใช้ช่องแบบเดิมด้านล่าง</p>
                         <div class="grid-3">
                             <div class="field"><label for="thai_url_Buy">ฉบับไทย</label><input class="input" id="thai_url_Buy" type="url" inputmode="url"></div>
                             <div class="field"><label for="eng_url_Buy">ฉบับอังกฤษ</label><input class="input" id="eng_url_Buy" type="url" inputmode="url"></div>
@@ -142,7 +184,7 @@
 
     <dialog id="confirm" class="sheet" aria-labelledby="confirm-title">
         <div class="stack">
-            <h2 id="confirm-title">ลบมังงะเรื่องนี้?</h2>
+            <h2 id="confirm-title">ลบเรื่องนี้?</h2>
             <p id="confirm-text" class="muted"></p>
             <div class="sheet-actions">
                 <button class="btn btn-sm btn-ghost" id="confirm-cancel" type="button">ยกเลิก</button>

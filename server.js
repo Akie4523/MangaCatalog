@@ -212,7 +212,12 @@ app.use((req, res, next) => {
 });
 
 // ไฟล์ static เปิดเฉพาะโฟลเดอร์ assets (เดิมเปิดทั้งโปรเจกต์ ทำให้โหลด server.js / .env ได้)
-app.use('/assets', express.static(path.join(__dirname, 'assets'), { index: false, dotfiles: 'ignore', maxAge: '1h' }));
+// JS/CSS ต้อง revalidate ทุกครั้ง (ETag ทำให้ถ้าไม่เปลี่ยนจะตอบ 304 เบาๆ) — ไม่งั้นหลังอัปเดต HTML ใหม่จับคู่กับ JS เก่าที่แคชไว้ ปุ่มจะกดไม่ติด
+// รูปภาพ/ไอคอนยังแคชได้ 1 ชั่วโมง
+app.use('/assets', express.static(path.join(__dirname, 'assets'), {
+    index: false, dotfiles: 'ignore', maxAge: '1h',
+    setHeaders: (res, filePath) => { if (/\.(js|css)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache'); }
+}));
 
 const makeLimiter = (windowMs, limit, message) => rateLimit({
     windowMs, limit, standardHeaders: 'draft-7', legacyHeaders: false, message: { message }
@@ -249,6 +254,8 @@ const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch
 // ==========================================
 const Manga = mongoose.model('Manga', new mongoose.Schema({
     id: String,
+    // หมวด: manga | anime (เรื่องเก่าที่ไม่มีค่านี้ถือเป็น manga) — anime ใช้ฟิลด์ translator/translator_link เก็บ "สตูดิโอ"
+    type: { type: String, enum: ['manga', 'anime'], default: 'manga' },
     title: String,
     cover: String,
     description: String,
@@ -268,6 +275,19 @@ const Manga = mongoose.model('Manga', new mongoose.Schema({
     original_url: String,
     original_url_Buy: String,
     facebook_post_url: { type: String, default: '' },
+    // ข้อมูลเพิ่มเติม (แผง Information) — ใช้ทั้งมังงะและอนิเมะ ป้ายที่แสดงต่างกันตามหมวด
+    format: String, episodes: String, air_status: String, aired: String, premiered: String, broadcast: String,
+    producers: String, licensors: String, source: String, duration: String, age_rating: String,
+    themes: { type: [String], default: [] },
+    // ช่องทางถูกลิขสิทธิ์หลายลิงก์ พร้อมชื่อช่องทาง (เช่น Netflix, Bilibili, Amazon)
+    legal_links: {
+        type: [{ _id: false, label: { type: String, default: '' }, url: { type: String, required: true } }],
+        default: []
+    },
+    // จัดกลุ่มซีซัน/ภาค: เรื่องที่ series ชื่อเดียวกันจะลิงก์หากันในหน้ารายละเอียดโดยอัตโนมัติ
+    series: { type: String, default: '' },
+    season_label: { type: String, default: '' },
+    season_order: { type: Number, default: 0 },
     // ลิงก์โพสต์ Facebook แยกรายตอน — สำหรับนักแปลที่ลงแต่ละตอนเป็นโพสต์เดี่ยวๆ โดยไม่ได้ทำอัลบั้มรวม
     chapters: {
         type: [{ _id: false, label: { type: String, default: '' }, url: { type: String, required: true } }],
@@ -413,7 +433,10 @@ async function findMangaDoc(id) {
 
 const STR_FIELDS = {
     title: 200, th_name: 200, en_name: 200, jp_name: 200, description: 5000,
-    rating: 20, author: 200, artist: 200, translator: 200
+    rating: 20, author: 200, artist: 200, translator: 200,
+    format: 40, episodes: 40, air_status: 60, aired: 80, premiered: 60, broadcast: 80,
+    producers: 300, licensors: 300, source: 60, duration: 60, age_rating: 60,
+    series: 200, season_label: 60
 };
 const URL_FIELDS = [
     'cover', 'translator_link', 'thai_url', 'thai_url_Buy', 'eng_url', 'eng_url_Buy',
@@ -441,11 +464,26 @@ function cleanMangaInput(body) {
         out[key] = u.href;
     }
 
+    const type = body.type === undefined || body.type === '' ? 'manga' : body.type;
+    if (type !== 'manga' && type !== 'anime') return { error: 'หมวดไม่ถูกต้อง' };
+    out.type = type;
+
     const tags = body.tags === undefined ? [] : body.tags;
     if (!Array.isArray(tags) || tags.length > 30 || tags.some(t => typeof t !== 'string' || t.length > 40)) {
         return { error: 'แท็กไม่ถูกต้อง (สูงสุด 30 แท็ก แท็กละไม่เกิน 40 ตัวอักษร)' };
     }
     out.tags = [...new Set(tags.map(t => t.trim()).filter(Boolean))];
+
+    const themes = body.themes === undefined ? [] : body.themes;
+    if (!Array.isArray(themes) || themes.length > 30 || themes.some(t => typeof t !== 'string' || t.length > 40)) {
+        return { error: 'ธีมไม่ถูกต้อง (สูงสุด 30 ธีม ธีมละไม่เกิน 40 ตัวอักษร)' };
+    }
+    out.themes = [...new Set(themes.map(t => t.trim()).filter(Boolean))];
+
+    const ord = body.season_order === undefined || body.season_order === null || body.season_order === '' ? 0 : Number(body.season_order);
+    if (!Number.isInteger(ord) || ord < 0 || ord > 9999) return { error: 'ลำดับซีซันต้องเป็นเลขจำนวนเต็ม 0-9999' };
+    out.season_order = ord;
+    if (!out.series) { out.season_label = ''; out.season_order = 0; }
 
     // ลิงก์ Facebook รายตอน — แถวที่ไม่มี url ถูกข้าม (ผู้ใช้อาจเว้นแถวว่างไว้ระหว่างกรอก)
     const rawChapters = body.chapters === undefined ? [] : body.chapters;
@@ -464,6 +502,20 @@ function cleanMangaInput(body) {
         chapters.push({ label, url: u.href });
     }
     out.chapters = chapters;
+
+    const rawLegal = body.legal_links === undefined ? [] : body.legal_links;
+    if (!Array.isArray(rawLegal) || rawLegal.length > 50) return { error: 'รายการช่องทางถูกลิขสิทธิ์ไม่ถูกต้อง (สูงสุด 50 ช่องทาง)' };
+    const legal = [];
+    for (const l of rawLegal) {
+        if (!l || typeof l !== 'object' || Array.isArray(l)) return { error: 'ข้อมูลช่องทางถูกลิขสิทธิ์ไม่ถูกต้อง' };
+        const rawUrl = typeof l.url === 'string' ? l.url.trim() : '';
+        if (!rawUrl) continue;
+        if (rawUrl.length > 2048) return { error: 'ลิงก์ช่องทางถูกลิขสิทธิ์ยาวเกินไป' };
+        const u = parseHttpUrl(rawUrl);
+        if (!u) return { error: 'ลิงก์ "' + rawUrl.slice(0, 60) + '" ต้องขึ้นต้นด้วย http:// หรือ https://' };
+        legal.push({ label: typeof l.label === 'string' ? l.label.trim().slice(0, 60) : '', url: u.href });
+    }
+    out.legal_links = legal;
 
     if (!out.th_name) return { error: 'กรุณากรอกชื่อภาษาไทย' };
     out.title = out.title || out.th_name;
@@ -650,15 +702,23 @@ app.get('/auth/google/callback', googleLimiter, wrap(async (req, res) => {
 }));
 
 // --- Manga (อ่านได้ทุกคน / แก้ไขได้เฉพาะแอดมิน) ---
-const LIST_FIELDS = '_id id title th_name en_name jp_name cover author tags rating';
+const LIST_FIELDS = '_id id type series title th_name en_name jp_name cover author tags rating';
 
 app.get('/manga', wrap(async (req, res) => {
-    res.json(await Manga.find().select(LIST_FIELDS).sort({ _id: -1 }).lean());
+    // ?type=anime|manga (manga รวมเรื่องเก่าที่ยังไม่มีฟิลด์ type) — ไม่ระบุ = ทุกหมวด
+    const t = req.query.type;
+    const filter = t === 'anime' ? { type: 'anime' } : t === 'manga' ? { type: { $ne: 'anime' } } : {};
+    res.json(await Manga.find(filter).select(LIST_FIELDS).sort({ _id: -1 }).lean());
 }));
 
 app.get('/api/manga/:id', wrap(async (req, res) => {
     const manga = await findMangaDoc(req.params.id);
     if (!manga) return res.status(404).json({ message: 'ไม่พบมังงะ' });
+    // ซีซัน/ภาคอื่นในซีรีส์เดียวกัน (รวมเรื่องนี้ เพื่อให้หน้าแสดงเรียงครบชุด)
+    if (typeof manga.series === 'string' && manga.series) {
+        manga.seasons = await Manga.find({ series: manga.series })
+            .select('_id th_name title season_label season_order').sort({ season_order: 1, _id: 1 }).limit(100).lean();
+    }
     res.json(manga);
 }));
 

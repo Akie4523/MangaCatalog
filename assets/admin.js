@@ -5,7 +5,9 @@
 
     var TEXT_FIELDS = ['th_name', 'en_name', 'jp_name', 'cover', 'rating', 'description', 'author', 'artist',
         'translator', 'translator_link', 'thai_url', 'thai_url_Buy', 'eng_url', 'eng_url_Buy',
-        'original_url', 'original_url_Buy', 'facebook_post_url'];
+        'original_url', 'original_url_Buy', 'facebook_post_url',
+        'format', 'episodes', 'air_status', 'aired', 'premiered', 'broadcast', 'producers', 'licensors', 'source', 'duration', 'age_rating',
+        'series', 'season_label', 'season_order'];
 
     var list = [];
     var pendingDelete = null;
@@ -111,7 +113,7 @@
             }
 
             if (!label) {
-                label = 'ตอนที่ ' + (collectChapters().length + imported.length + 1);
+                label = MC.TYPES[currentType()].epWord + (collectChapters().length + imported.length + 1);
             }
 
             imported.push({ label: label, url: url });
@@ -137,6 +139,58 @@
     });
 
 
+    // ---------- Type (manga / anime) ----------
+    function currentType() { var r = form.querySelector('input[name="type"]:checked'); return r ? r.value : 'manga'; }
+    function setType(t) {
+        var r = form.querySelector('input[name="type"][value="' + (t === 'anime' ? 'anime' : 'manga') + '"]');
+        if (r) r.checked = true;
+        applyType();
+    }
+    function applyType() {
+        var T = MC.TYPES[currentType()];
+        MC.$$('[data-t]', form).forEach(function (el) { el.textContent = T[el.dataset.t]; });
+        MC.$$('[data-only]', form).forEach(function (el) { el.classList.toggle('hide', el.dataset.only !== T.key); });
+        if (!editId.value) MC.$('#form-title').textContent = T.newTitle;
+        MC.$('#chapter-bulk').placeholder = T.epWord + '12 | https://facebook.com/...\nhttps://facebook.com/...';
+    }
+    form.addEventListener('change', function (e) { if (e.target.name === 'type') applyType(); });
+
+    // ---------- Legal links (หลายช่องทาง) ----------
+    var legalRows = MC.$('#legal-rows');
+    function addLegalRow(label, url) {
+        var row = document.createElement('div');
+        row.className = 'chapter-row';
+        var l = document.createElement('input');
+        l.type = 'text'; l.className = 'input'; l.maxLength = 60; l.value = label || '';
+        l.placeholder = 'ช่องทาง เช่น Netflix'; l.setAttribute('aria-label', 'ชื่อช่องทาง'); l.dataset.legalLabel = '1';
+        l.setAttribute('list', 'dl-platform');
+        var u = document.createElement('input');
+        u.type = 'url'; u.className = 'input'; u.value = url || '';
+        u.placeholder = 'https://...'; u.setAttribute('aria-label', 'ลิงก์ช่องทาง'); u.dataset.legalUrl = '1';
+        var rm = document.createElement('button');
+        rm.type = 'button'; rm.className = 'btn btn-sm'; rm.textContent = 'ลบ'; rm.setAttribute('aria-label', 'ลบช่องทางนี้');
+        row.append(l, u, rm);
+        legalRows.appendChild(row);
+    }
+    function renderLegalRows(items) {
+        legalRows.replaceChildren();
+        (Array.isArray(items) ? items : []).forEach(function (x) { if (x && typeof x === 'object') addLegalRow(x.label, x.url); });
+        if (!legalRows.children.length) addLegalRow('', '');
+    }
+    function collectLegal() {
+        return Array.from(legalRows.children).map(function (row) {
+            return { label: row.querySelector('[data-legal-label]').value.trim(), url: row.querySelector('[data-legal-url]').value.trim() };
+        }).filter(function (x) { return x.url !== ''; });
+    }
+    renderLegalRows([]);
+    MC.$('#legal-add').addEventListener('click', function () { addLegalRow('', ''); });
+    legalRows.addEventListener('click', function (e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+        btn.closest('.chapter-row').remove();
+        if (!legalRows.children.length) addLegalRow('', '');
+    });
+
     // ---------- Tabs ----------
     function showTab(name) {
         var isList = name === 'list';
@@ -155,7 +209,7 @@
             return !q || [m.th_name, m.title, m.en_name, m.jp_name].some(function (v) { return v && String(v).toLowerCase().indexOf(q) !== -1; });
         });
         if (!items.length) {
-            rowsEl.innerHTML = '<li class="note">' + (list.length ? 'ไม่พบเรื่องที่ค้นหา' : 'ยังไม่มีมังงะในระบบ กดแท็บ "เพิ่ม / แก้ไข" เพื่อเพิ่มเรื่องแรก') + '</li>';
+            rowsEl.innerHTML = '<li class="note">' + (list.length ? 'ไม่พบเรื่องที่ค้นหา' : 'ยังไม่มีรายการในระบบ กดแท็บ "เพิ่ม / แก้ไข" เพื่อเพิ่มเรื่องแรก') + '</li>';
             return;
         }
         rowsEl.innerHTML = items.map(function (m) {
@@ -163,7 +217,7 @@
             var cover = MC.safeUrl(m.cover);
             return '<li class="row">' +
                 '<span class="thumb">' + (cover ? '<img src="' + esc(cover) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '') + '</span>' +
-                '<div><div class="row-title">' + esc(name) + '</div><div class="row-sub">' + esc(m.author || 'ไม่ระบุผู้แต่ง') + '</div></div>' +
+                '<div><div class="row-title">' + (m.type === 'anime' ? '<span class="tag tag-type">อนิเมะ</span> ' : '') + esc(name) + '</div><div class="row-sub">' + esc(m.author || 'ไม่ระบุผู้แต่ง') + '</div></div>' +
                 '<div class="row-actions">' +
                     '<a class="icon-btn" href="/detail?id=' + encodeURIComponent(m._id) + '" aria-label="ดูหน้ารายละเอียด: ' + esc(name) + '">' + icon('external') + '</a>' +
                     '<button class="icon-btn" type="button" data-edit="' + esc(m._id) + '" aria-label="แก้ไข: ' + esc(name) + '">' + icon('edit') + '</button>' +
@@ -174,7 +228,11 @@
 
     function loadList() {
         return MC.api('/manga').then(function (r) {
-            if (r.ok && Array.isArray(r.data)) { list = r.data; renderRows(); }
+            if (r.ok && Array.isArray(r.data)) {
+                list = r.data; renderRows();
+                var names = {}; list.forEach(function (m) { if (m.series) names[m.series] = 1; });
+                MC.$('#dl-series').innerHTML = Object.keys(names).sort().map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+            }
             else rowsEl.innerHTML = '<li class="note" data-kind="error">โหลดรายการไม่สำเร็จ</li>';
         });
     }
@@ -219,8 +277,9 @@
     function resetForm() {
     HTMLFormElement.prototype.reset.call(form);
     editId.value = '';
-    MC.$('#form-title').textContent = 'เพิ่มมังงะใหม่';
+    applyType();
     renderChapterRows([]);
+    renderLegalRows([]);
     chapterBulk.value = '';
     setCoverPreview();
 }
@@ -245,11 +304,14 @@
             var d = r.data;
             resetForm();
             editId.value = d._id;
+            setType(d.type);
             TEXT_FIELDS.forEach(function (f) {
                 MC.$('#' + f).value = asText(d[f]) || (f === 'th_name' ? asText(d.title) : '');
             });
             MC.$('#tags').value = tagsToText(d.tags);
+            MC.$('#themes').value = tagsToText(d.themes);
             renderChapterRows(d.chapters);
+            renderLegalRows(d.legal_links);
             MC.$('#form-title').textContent = 'แก้ไข: ' + (d.th_name || d.title || 'เรื่องนี้');
             setCoverPreview();
             showTab('form');
@@ -278,13 +340,16 @@
         payload[f] = MC.$('#' + f).value.trim();
     });
 
+    payload.type = currentType();
     payload.title = payload.th_name;
     payload.tags = MC.$('#tags').value
         .split(',')
         .map(function (t) { return t.trim(); })
         .filter(Boolean);
 
+    payload.themes = MC.$('#themes').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
     payload.chapters = collectChapters();
+    payload.legal_links = collectLegal();
 
     // DEBUG: ตรวจสอบข้อมูลก่อนส่ง
     console.log('[DEBUG] chapters:', payload.chapters);
