@@ -212,7 +212,12 @@ app.use((req, res, next) => {
 });
 
 // ไฟล์ static เปิดเฉพาะโฟลเดอร์ assets (เดิมเปิดทั้งโปรเจกต์ ทำให้โหลด server.js / .env ได้)
-app.use('/assets', express.static(path.join(__dirname, 'assets'), { index: false, dotfiles: 'ignore', maxAge: '1h' }));
+// JS/CSS ต้อง revalidate ทุกครั้ง (ETag ทำให้ถ้าไม่เปลี่ยนจะตอบ 304 เบาๆ) — ไม่งั้นหลังอัปเดต HTML ใหม่จับคู่กับ JS เก่าที่แคชไว้ ปุ่มจะกดไม่ติด
+// รูปภาพ/ไอคอนยังแคชได้ 1 ชั่วโมง
+app.use('/assets', express.static(path.join(__dirname, 'assets'), {
+    index: false, dotfiles: 'ignore', maxAge: '1h',
+    setHeaders: (res, filePath) => { if (/\.(js|css)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache'); }
+}));
 
 const makeLimiter = (windowMs, limit, message) => rateLimit({
     windowMs, limit, standardHeaders: 'draft-7', legacyHeaders: false, message: { message }
