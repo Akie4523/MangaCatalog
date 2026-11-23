@@ -108,7 +108,7 @@
         var actions =
             '<button class="btn btn-sm" id="fav-btn" type="button" aria-pressed="' + faved + '">' + icon('heart', 'i-heart') + '<span>' + favLabel(faved) + '</span></button>' +
             (user.role === 'admin' ? '<a class="btn btn-sm" href="/admin?edit=' + encodeURIComponent(m._id) + '">' + icon('edit') + '<span>แก้ไข</span></a>' : '');
-        var warn = MC.isAdult(m) ? '<div class="adult-warn" role="note">' + icon('alert') + '<div><strong>เรื่องนี้มีเนื้อหาล่อแหลม (18+)</strong><span>อาจมีภาพหรือเนื้อหาที่ไม่เหมาะสมกับผู้เยาว์ เหมาะสำหรับผู้มีอายุ 18 ปีขึ้นไป</span></div></div>' : '';
+        var warn = MC.flagCards(m);
         var tagsHtml = '<div class="tags">' +
             '<span class="tag tag-type">' + esc(T.label) + '</span>' +
             (m.rating ? '<span class="tag tag-rating">' + icon('star') + esc(m.rating) + '</span>' : '') +

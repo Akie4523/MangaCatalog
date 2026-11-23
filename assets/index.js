@@ -87,7 +87,7 @@
     function isFresh(ms) { return ms && Date.now() - ms < NEW_DAYS * 86400000; }
 
     function link(m) {
-        return '<a href="/detail?id=' + encodeURIComponent(m._id || m.id) + '"' + (MC.isAdult(m) ? ' data-adult data-name="' + MC.esc(m.th_name || m.title || '') + '"' : '');
+        return '<a href="/detail?id=' + encodeURIComponent(m._id || m.id) + '"' + MC.gateAttr(m, m.th_name || m.title || '');
     }
 
     function renderLatest(show) {
@@ -96,7 +96,7 @@
         var f = items[0], fc = MC.safeUrl(f.cover), ft = MC.typeOf(f), fms = createdMs(f);
         var feat = link(f) + ' class="feat">' +
             (fc ? '<img class="feat-bg" src="' + MC.esc(fc) + '" alt="" aria-hidden="true" referrerpolicy="no-referrer"><img class="feat-img" src="' + MC.esc(fc) + '" alt="" referrerpolicy="no-referrer">' : '') +
-            '<span class="badges"><span class="type-badge">ใหม่ล่าสุด</span>' + (ft.key === 'anime' ? '<span class="type-badge ink">อนิเมะ</span>' : '') + (MC.isAdult(f) ? '<span class="adult-badge">18+</span>' : '') + '</span>' +
+            '<span class="badges"><span class="type-badge">ใหม่ล่าสุด</span>' + (ft.key === 'anime' ? '<span class="type-badge ink">อนิเมะ</span>' : '') + MC.flagBadges(f) + '</span>' +
             '<span class="feat-in"><h3>' + MC.esc(f.th_name || f.title || 'ไม่มีชื่อ') + '</h3>' +
             '<p>' + MC.esc([f.author, (f.tags || []).slice(0, 3).join(' · ')].filter(Boolean).join(' — ')) + '</p>' +
             '<span class="when">เพิ่ม ' + MC.esc(ago(fms)) + '</span></span></a>';
@@ -106,7 +106,7 @@
                 '<span class="cover">' + (c ? '<img src="' + MC.esc(c) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">' : '') + '</span>' +
                 '<span class="mini-t"><h3>' + MC.esc(m.th_name || m.title || 'ไม่มีชื่อ') + '</h3>' +
                 '<small>' + MC.esc(MC.typeOf(m).label) + (m.author ? ' · ' + MC.esc(m.author) : '') + '</small>' +
-                '<small class="mini-when">' + (isFresh(ms) ? '<span class="pill">ใหม่</span>' : '') + (MC.isAdult(m) ? '<span class="adult-badge">18+</span>' : '') + MC.esc(ago(ms)) + '</small></span></a>';
+                '<small class="mini-when">' + (isFresh(ms) ? '<span class="pill">ใหม่</span>' : '') + MC.flagBadges(m) + MC.esc(ago(ms)) + '</small></span></a>';
         }).join('');
         latestEl.innerHTML =
             '<div class="shelf-h"><h2>มาใหม่ <span class="spark">NEW</span></h2><span class="shelf-n">' + items.length + ' เรื่องล่าสุดที่เพิ่มเข้ามา</span></div>' +
