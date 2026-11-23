@@ -134,22 +134,25 @@
         var crumb = '<a class="crumb" href="/?type=' + T.key + '">' + icon('back') + '<span>กลับไปหน้า' + esc(T.label) + '</span></a>';
 
         if (landscape && cover) {
-            // ปกแนวนอน: เวทีภาพเต็มความกว้าง ชื่อเรื่องทับขอบล่าง กล่องลิงก์ย้ายไปคอลัมน์ขวา
-            view.innerHTML = crumb +
-                '<div class="dl">' +
-                    '<figure class="stage">' +
-                        '<img class="bg" src="' + esc(cover) + '" alt="" aria-hidden="true" referrerpolicy="no-referrer">' +
-                        '<span class="shade"></span>' +
-                        '<img class="main-img" src="' + esc(cover) + '" alt="ปกเรื่อง ' + esc(name) + '" referrerpolicy="no-referrer">' +
-                        '<figcaption class="stage-cap"><div>' + titleBlock + '</div><div class="row-actions">' + actions + '</div></figcaption>' +
-                    '</figure>' +
-                    '<div class="dl-cols">' +
-                        '<div class="detail-main">' + warn + tagsHtml + body + '</div>' +
-                        '<aside class="dl-side">' + links + '</aside>' +
-                    '</div>' +
-                '</div>';
-            return;
-        }
+         // ปกแนวนอน: เวทีภาพเต็มความกว้าง ชื่อเรื่องทับขอบล่าง กล่องลิงก์ย้ายไปคอลัมน์ขวา
+         view.innerHTML = crumb +
+             '<div class="dl">' +
+                 '<figure class="stage">' +
+                     '<img class="bg" src="' + esc(cover) + '" alt="" aria-hidden="true" referrerpolicy="no-referrer">' +
+                     '<span class="shade"></span>' +
+                     '<img class="main-img" src="' + esc(cover) + '" alt="ปกเรื่อง ' + esc(name) + '" referrerpolicy="no-referrer">' +
+                     '<figcaption class="stage-cap">' +
+                         '<div class="stage-title-box">' + titleBlock + '</div>' +
+                         '<div class="row-actions stage-actions-box">' + actions + '</div>' +
+                     '</figcaption>' +
+                 '</figure>' +
+                 '<div class="dl-cols">' +
+                     '<div class="detail-main">' + warn + tagsHtml + body + '</div>' +
+                     '<aside class="dl-side">' + links + '</aside>' +
+                 '</div>' +
+             '</div>';
+         return;
+     }
 
         view.innerHTML = crumb +
             '<div class="detail">' +
