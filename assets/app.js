@@ -137,24 +137,73 @@
             ADULT_AGE.test(String(m.age_rating || ''));
     }
 
+    // คำเตือนเนื้อหา: 18+ (ดูจากแท็ก/ช่องเรทอายุ) และ Intense / Mature / Violent (ดูจากแท็กหรือธีม)
+    var FLAGS = [
+        { key: 'adult', badge: '18+', cls: 'adult-badge', re: ADULT_TAG, title: 'เรื่องนี้มีเนื้อหาล่อแหลม (18+)',
+          text: 'อาจมีภาพหรือเนื้อหาที่ไม่เหมาะสมกับผู้เยาว์ เหมาะสำหรับผู้มีอายุ 18 ปีขึ้นไป', age: true },
+        { key: 'intense', badge: 'Intense', cls: 'flag-badge flag-intense', title: 'Intense', re: /^intense$/i,
+          text: 'เนื้อหารุนแรง อาจกระทบกระเทือนต่อจิตใจผู้อ่านได้' },
+        { key: 'mature', badge: 'Mature', cls: 'flag-badge flag-mature', title: 'Mature', re: /^mature$/i, age: true,
+          text: 'อาจมีฉากสยิว หรือเนื้อหาสำหรับผู้บรรลุนิติภาวะ ควรระวังผู้ปกครอง คนรอบข้าง ระหว่างการรับชม' },
+        { key: 'violent', badge: 'Violent', cls: 'flag-badge flag-violent', title: 'Violent', re: /^(violen(t|ce)|gore|ความรุนแรง|รุนแรง)$/i,
+          text: 'เนื้อหามีความรุนแรง อาจมีการใช้คำพูดและ/หรือพฤติกรรมการใช้กำลัง รวมถึงเลือดและอื่นๆ' }
+    ];
+    function hasFlagTag(m, re) {
+        function hit(list) { return (Array.isArray(list) ? list : []).some(function (t) { return re.test(String(t).trim()); }); }
+        return hit(m.tags) || hit(m.themes);
+    }
+    // คืนรายการคำเตือนที่เรื่องนี้โดน (เรียงตาม FLAGS)
+    function flagsOf(m) {
+        if (!m) return [];
+        return FLAGS.filter(function (f) { return f.key === 'adult' ? isAdult(m) : hasFlagTag(m, f.re); });
+    }
+    // attribute ที่ทำให้การ์ด/ลิงก์ขึ้น dialog เตือนก่อนเข้า (ใช้ร่วมกันทุกหน้า)
+    function gateAttr(m, name) {
+        var fl = flagsOf(m);
+        if (!fl.length) return '';
+        return ' data-flags="' + fl.map(function (f) { return f.key; }).join(' ') + '" data-name="' + esc(name) + '"';
+    }
+    // ป้ายเตือนบนปก: ป้ายเดียว "Warning" (รายละเอียดว่ามีอะไรบ้างอยู่ใน dialog ตอนกดเข้า)
+    function flagBadges(m) {
+        var fl = flagsOf(m);
+        if (!fl.length) return '';
+        return '<span class="warn-badge" aria-label="คำเตือนเนื้อหา: ' + esc(fl.map(function (f) { return f.badge; }).join(', ')) + '">' + icon('alert') + 'Warning</span>';
+    }
+    // กล่องเตือนในหน้ารายละเอียด: แถบเดียว (ย่อไว้) กดเพื่อดูว่ามีอะไรบ้าง
+    function flagCards(m) {
+        var fl = flagsOf(m);
+        if (!fl.length) return '';
+        return '<details class="warn-box">' +
+            '<summary>' +
+                '<span class="warn-ic">' + icon('alert') + '</span>' +
+                '<span class="warn-sum"><strong>Warning · คำเตือนเนื้อหา</strong>' +
+                    '<span class="warn-chips">' + fl.map(function (f) { return '<span class="' + f.cls + '">' + esc(f.badge) + '</span>'; }).join('') + '</span></span>' +
+                '<span class="warn-more">ดูรายละเอียด</span>' +
+            '</summary>' +
+            '<div class="warn-items">' + fl.map(function (f) {
+                return '<div class="warn-item"><span class="' + f.cls + '">' + esc(f.badge) + '</span><span>' + esc(f.text) + '</span></div>';
+            }).join('') + '</div>' +
+        '</details>';
+    }
+
     function typeOf(m) { return (m && m.type === 'anime') ? TYPES.anime : TYPES.manga; }
 
     function bookCard(m, faved, index) {
         var id = m._id || m.id;
         var name = m.th_name || m.title || 'ไม่มีชื่อ';
         var cover = safeUrl(m.cover);
-        var adult = isAdult(m);
+        var flagged = flagsOf(m).length > 0;
         var label = (faved ? 'เอาออกจากรายการโปรด: ' : 'เพิ่มในรายการโปรด: ') + name;
         // จำกัด delay ไว้ที่ 12 ใบแรก ไม่งั้นรายการยาวๆ จะรอ animation นานเกินไป
         var delay = typeof index === 'number' ? Math.min(index, 11) * 35 : 0;
         return '<article class="book" style="--d:' + delay + '">' +
-            '<a class="book-link" href="/detail?id=' + encodeURIComponent(id) + '"' + (adult ? ' data-adult data-name="' + esc(name) + '"' : '') + '>' +
+            '<a class="book-link" href="/detail?id=' + encodeURIComponent(id) + '"' + gateAttr(m, name) + '>' +
                 '<span class="cover">' + (cover ? '<img src="' + esc(cover) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">' : '') + '</span>' +
                 '<span class="book-title">' + esc(name) + '</span>' +
                 '<span class="book-by">' + esc(m.author || (typeOf(m).key === 'anime' ? 'ไม่ระบุต้นฉบับ' : 'ไม่ระบุผู้แต่ง')) + '</span>' +
             '</a>' +
-            ((adult || typeOf(m).key === 'anime')
-                ? '<span class="badges">' + (typeOf(m).key === 'anime' ? '<span class="type-badge">อนิเมะ</span>' : '') + (adult ? '<span class="adult-badge">18+</span>' : '') + '</span>'
+            ((flagged || typeOf(m).key === 'anime')
+                ? '<span class="badges">' + (typeOf(m).key === 'anime' ? '<span class="type-badge">อนิเมะ</span>' : '') + flagBadges(m) + '</span>'
                 : '') +
             '<button class="fav" type="button" data-fav="' + esc(id) + '" aria-pressed="' + (faved ? 'true' : 'false') + '" aria-label="' + esc(label) + '">' + icon('heart', 'i-heart') + '</button>' +
         '</article>';
@@ -212,37 +261,47 @@
         }
     }, true);
 
-    // ---------- เตือนเนื้อหา 18+ ก่อนเข้าไปอ่าน (ขึ้นทุกครั้งที่กดการ์ดที่มีแท็ก 18+) ----------
-    var adultDlg = null;
-    function adultGate(href, name) {
-        if (!adultDlg) {
-            adultDlg = document.createElement('dialog');
-            adultDlg.className = 'sheet adult-sheet';
-            adultDlg.setAttribute('aria-labelledby', 'adult-title');
-            adultDlg.innerHTML =
+    // ---------- เตือนเนื้อหา (18+ / Intense / Mature / Violent) ก่อนเข้าไปอ่าน ขึ้นทุกครั้งที่กดการ์ดที่มีแท็กเหล่านี้ ----------
+    var gateDlg = null;
+    function contentGate(href, name, keys) {
+        var fl = FLAGS.filter(function (f) { return keys.indexOf(f.key) !== -1; });
+        if (!fl.length) { location.href = href; return; }
+        if (!gateDlg) {
+            gateDlg = document.createElement('dialog');
+            gateDlg.className = 'sheet adult-sheet';
+            gateDlg.setAttribute('aria-labelledby', 'gate-title');
+            gateDlg.innerHTML =
                 '<div class="stack">' +
-                    '<div class="adult-ic">' + icon('alert') + '<span class="adult-badge">18+</span></div>' +
-                    '<h2 id="adult-title">เรื่องนี้มีเนื้อหาล่อแหลม</h2>' +
-                    '<p id="adult-text"></p>' +
-                    '<p class="muted small">เหมาะสำหรับผู้ที่มีอายุ 18 ปีขึ้นไปเท่านั้น</p>' +
+                    '<div class="adult-ic"><span class="warn-badge">' + icon('alert') + 'Warning</span></div>' +
+                    '<h2 id="gate-title">เรื่องนี้มีคำเตือนเนื้อหา</h2>' +
+                    '<p id="gate-name"></p>' +
+                    '<div class="gate-list" id="gate-list"></div>' +
+                    '<p class="muted small" id="gate-note"></p>' +
                     '<div class="sheet-actions">' +
-                        '<button class="btn btn-sm btn-ghost" id="adult-cancel" type="button">ยกเลิก</button>' +
-                        '<a class="btn btn-sm btn-primary" id="adult-go" href="#">ฉันอายุ 18 ปีขึ้นไป — เข้าดู</a>' +
+                        '<button class="btn btn-sm btn-ghost" id="gate-cancel" type="button">ยกเลิก</button>' +
+                        '<a class="btn btn-sm btn-primary" id="gate-go" href="#"></a>' +
                     '</div>' +
                 '</div>';
-            document.body.appendChild(adultDlg);
-            adultDlg.querySelector('#adult-cancel').addEventListener('click', function () { adultDlg.close(); });
+            document.body.appendChild(gateDlg);
+            gateDlg.querySelector('#gate-cancel').addEventListener('click', function () { gateDlg.close(); });
         }
-        adultDlg.querySelector('#adult-text').textContent = '"' + name + '" มีแท็ก 18+ และอาจมีภาพหรือเนื้อหาที่ไม่เหมาะสมกับผู้เยาว์';
-        adultDlg.querySelector('#adult-go').href = href;
-        if (typeof adultDlg.showModal === 'function') adultDlg.showModal(); else location.href = href;
+        var needAge = fl.some(function (f) { return f.age; });
+        gateDlg.querySelector('#gate-name').textContent = '"' + name + '" มีคำเตือนต่อไปนี้';
+        gateDlg.querySelector('#gate-list').innerHTML = fl.map(function (f) {
+            return '<div class="gate-item"><span class="' + f.cls + '">' + esc(f.badge) + '</span><span>' + esc(f.text) + '</span></div>';
+        }).join('');
+        gateDlg.querySelector('#gate-note').textContent = needAge ? 'เหมาะสำหรับผู้ที่มีอายุ 18 ปีขึ้นไปเท่านั้น' : 'โปรดใช้วิจารณญาณในการรับชม';
+        var goEl = gateDlg.querySelector('#gate-go');
+        goEl.textContent = needAge ? 'ฉันอายุ 18 ปีขึ้นไป — เข้าดู' : 'รับทราบ — เข้าดู';
+        goEl.href = href;
+        if (typeof gateDlg.showModal === 'function') gateDlg.showModal(); else location.href = href;
     }
     document.addEventListener('click', function (e) {
         if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        var a = e.target.closest && e.target.closest('a[data-adult]');
+        var a = e.target.closest && e.target.closest('a[data-flags]');
         if (!a) return;
         e.preventDefault();
-        adultGate(a.href, a.dataset.name || 'เรื่องนี้');
+        contentGate(a.href, a.dataset.name || 'เรื่องนี้', String(a.dataset.flags || '').split(/\s+/));
     });
 
     // ---------- Chrome (header / footer) ----------
@@ -318,7 +377,7 @@
 
     window.MC = {
         $: $, $$: $$, esc: esc, safeUrl: safeUrl, safeNext: safeNext, debounce: debounce,
-        api: api, me: me, toast: toast, icon: icon, TYPES: TYPES, typeOf: typeOf, isAdult: isAdult,
+        api: api, me: me, toast: toast, icon: icon, TYPES: TYPES, typeOf: typeOf, isAdult: isAdult, FLAGS: FLAGS, flagsOf: flagsOf, gateAttr: gateAttr, flagBadges: flagBadges, flagCards: flagCards,
         isFav: isFav, bookCard: bookCard, toggleFav: toggleFav, paintFav: paintFav
     };
 })();

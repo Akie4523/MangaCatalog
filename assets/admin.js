@@ -361,6 +361,23 @@
     }
     MC.$('#cover').addEventListener('input', MC.debounce(setCoverPreview, 300));
 
+    // ---------- ช่องติ๊กคำเตือนเนื้อหา (18+ / Intense / Mature / Violent) — เก็บลงฐานข้อมูลเป็นแท็กเหมือนเดิม ----------
+    var flagBox = MC.$('#flag-checks');
+    flagBox.innerHTML = MC.FLAGS.map(function (f) {
+        return '<label class="flag-check"><input type="checkbox" data-flag="' + MC.esc(f.key) + '"><span class="flag-body"><span class="' + MC.esc(f.cls) + '">' + MC.esc(f.badge) + '</span><span class="flag-desc">' + MC.esc(f.text) + '</span></span></label>';
+    }).join('');
+    function isFlagTag(t) { return MC.FLAGS.some(function (f) { return f.re.test(String(t).trim()); }); }
+    function splitTags(text) {
+        return String(text || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+    }
+    function setFlagChecks(keys) {
+        Array.prototype.forEach.call(flagBox.querySelectorAll('input[data-flag]'), function (cb) { cb.checked = keys.indexOf(cb.dataset.flag) !== -1; });
+    }
+    function checkedFlagTags() {
+        return MC.FLAGS.filter(function (f) { var cb = flagBox.querySelector('input[data-flag="' + f.key + '"]'); return cb && cb.checked; })
+            .map(function (f) { return f.badge; });
+    }
+
     function resetForm() {
     HTMLFormElement.prototype.reset.call(form);
     editId.value = '';
@@ -398,7 +415,9 @@
             var tk = currentType();
             typedKeys(tk).forEach(function (f) { MC.$('#' + tk + '-' + f).value = asText(d[f]); });
             MC.$('#' + tk + '-themes').value = tagsToText(d.themes);
-            MC.$('#tags').value = tagsToText(d.tags);
+            // แท็กที่เป็นคำเตือนจะย้ายไปเป็นช่องติ๊ก (ตอนบันทึกจะใส่กลับเป็นแท็กมาตรฐานให้)
+            MC.$('#tags').value = splitTags(tagsToText(d.tags)).filter(function (t) { return !isFlagTag(t); }).join(', ');
+            setFlagChecks(MC.flagsOf(d).map(function (f) { return f.key; }));
             renderChapterRows(d.chapters);
             renderLegalRows(d.legal_links);
             MC.$('#form-title').textContent = 'แก้ไข: ' + (d.th_name || d.title || 'เรื่องนี้');
@@ -432,10 +451,9 @@
 
     payload.type = currentType();
     payload.title = payload.th_name;
-    payload.tags = MC.$('#tags').value
-        .split(',')
-        .map(function (t) { return t.trim(); })
-        .filter(Boolean);
+    payload.tags = splitTags(MC.$('#tags').value)
+        .filter(function (t) { return !isFlagTag(t); })
+        .concat(checkedFlagTags());
 
     payload.chapters = collectChapters();
     payload.legal_links = collectLegal();
