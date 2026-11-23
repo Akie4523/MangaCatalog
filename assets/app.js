@@ -100,6 +100,9 @@
         logout: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h11"/>',
         shield: '<path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z"/>',
         eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+        filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
+        close: '<path d="M6 6l12 12M18 6 6 18"/>',
+        alert: '<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 10v4.5M12 17.5v.01"/>',
         tools: '<path d="M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5 2.5-2.5Z"/>'
     };
     function icon(name, cls) {
@@ -125,22 +128,34 @@
                  info: { format: 'ประเภท', episodes: 'จำนวนตอน', air_status: 'สถานะ', aired: 'ออกอากาศ', premiered: 'ซีซันที่เริ่ม', broadcast: 'เวลาออกอากาศ', producers: 'ผู้ผลิต', licensors: 'ผู้ถือลิขสิทธิ์', source: 'ต้นเรื่อง', duration: 'ความยาว', age_rating: 'เรทอายุ', themes: 'ธีม' },
                  infoOnly: ['format', 'episodes', 'air_status', 'aired', 'premiered', 'broadcast', 'producers', 'licensors', 'source', 'duration', 'age_rating'], seasonWord: 'ซีซัน', producersLabel: 'ผู้ผลิต (Producers)' }
     };
+    // เนื้อหา 18+: ดูจากแท็ก (18+, R18, NSFW, Adult) หรือช่องเรทอายุ
+    var ADULT_TAG = /^(18\s*\+|r[\s-]?18|nsfw|adult|18\s*plus)$/i;
+    var ADULT_AGE = /(^|\D)18\s*\+|\br[\s-]?18\b|\brx\b/i;
+    function isAdult(m) {
+        if (!m) return false;
+        return (Array.isArray(m.tags) ? m.tags : []).some(function (t) { return ADULT_TAG.test(String(t).trim()); }) ||
+            ADULT_AGE.test(String(m.age_rating || ''));
+    }
+
     function typeOf(m) { return (m && m.type === 'anime') ? TYPES.anime : TYPES.manga; }
 
     function bookCard(m, faved, index) {
         var id = m._id || m.id;
         var name = m.th_name || m.title || 'ไม่มีชื่อ';
         var cover = safeUrl(m.cover);
+        var adult = isAdult(m);
         var label = (faved ? 'เอาออกจากรายการโปรด: ' : 'เพิ่มในรายการโปรด: ') + name;
         // จำกัด delay ไว้ที่ 12 ใบแรก ไม่งั้นรายการยาวๆ จะรอ animation นานเกินไป
         var delay = typeof index === 'number' ? Math.min(index, 11) * 35 : 0;
         return '<article class="book" style="--d:' + delay + '">' +
-            '<a class="book-link" href="/detail?id=' + encodeURIComponent(id) + '">' +
+            '<a class="book-link" href="/detail?id=' + encodeURIComponent(id) + '"' + (adult ? ' data-adult data-name="' + esc(name) + '"' : '') + '>' +
                 '<span class="cover">' + (cover ? '<img src="' + esc(cover) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">' : '') + '</span>' +
                 '<span class="book-title">' + esc(name) + '</span>' +
                 '<span class="book-by">' + esc(m.author || (typeOf(m).key === 'anime' ? 'ไม่ระบุต้นฉบับ' : 'ไม่ระบุผู้แต่ง')) + '</span>' +
             '</a>' +
-            (typeOf(m).key === 'anime' ? '<span class="type-badge">อนิเมะ</span>' : '') +
+            ((adult || typeOf(m).key === 'anime')
+                ? '<span class="badges">' + (typeOf(m).key === 'anime' ? '<span class="type-badge">อนิเมะ</span>' : '') + (adult ? '<span class="adult-badge">18+</span>' : '') + '</span>'
+                : '') +
             '<button class="fav" type="button" data-fav="' + esc(id) + '" aria-pressed="' + (faved ? 'true' : 'false') + '" aria-label="' + esc(label) + '">' + icon('heart', 'i-heart') + '</button>' +
         '</article>';
     }
@@ -176,10 +191,59 @@
     document.addEventListener('error', function (e) {
         var t = e.target;
         if (t && t.tagName === 'IMG') {
+            if (t.classList.contains('cover-bg')) { t.remove(); return; }
             var c = t.closest && t.closest('.cover, .cover-preview, .thumb');
             if (c) { t.remove(); c.classList.add('broken'); }
         }
     }, true);
+
+    // ปกแนวนอน: แสดงภาพเต็มใบ (contain) บนพื้นหลังเบลอจากภาพเดียวกัน แทนการครอปทิ้ง
+    document.addEventListener('load', function (e) {
+        var t = e.target;
+        if (!t || t.tagName !== 'IMG' || t.classList.contains('cover-bg')) return;
+        var c = t.closest && t.closest('.cover, .cover-preview');
+        if (!c || c.classList.contains('land')) return;
+        if (t.naturalWidth > t.naturalHeight * 1.15) {
+            c.classList.add('land');
+            var bg = document.createElement('img');
+            bg.className = 'cover-bg'; bg.alt = ''; bg.referrerPolicy = 'no-referrer';
+            bg.setAttribute('aria-hidden', 'true'); bg.src = t.currentSrc || t.src;
+            c.insertBefore(bg, t);
+        }
+    }, true);
+
+    // ---------- เตือนเนื้อหา 18+ ก่อนเข้าไปอ่าน (ขึ้นทุกครั้งที่กดการ์ดที่มีแท็ก 18+) ----------
+    var adultDlg = null;
+    function adultGate(href, name) {
+        if (!adultDlg) {
+            adultDlg = document.createElement('dialog');
+            adultDlg.className = 'sheet adult-sheet';
+            adultDlg.setAttribute('aria-labelledby', 'adult-title');
+            adultDlg.innerHTML =
+                '<div class="stack">' +
+                    '<div class="adult-ic">' + icon('alert') + '<span class="adult-badge">18+</span></div>' +
+                    '<h2 id="adult-title">เรื่องนี้มีเนื้อหาล่อแหลม</h2>' +
+                    '<p id="adult-text"></p>' +
+                    '<p class="muted small">เหมาะสำหรับผู้ที่มีอายุ 18 ปีขึ้นไปเท่านั้น</p>' +
+                    '<div class="sheet-actions">' +
+                        '<button class="btn btn-sm btn-ghost" id="adult-cancel" type="button">ยกเลิก</button>' +
+                        '<a class="btn btn-sm btn-primary" id="adult-go" href="#">ฉันอายุ 18 ปีขึ้นไป — เข้าดู</a>' +
+                    '</div>' +
+                '</div>';
+            document.body.appendChild(adultDlg);
+            adultDlg.querySelector('#adult-cancel').addEventListener('click', function () { adultDlg.close(); });
+        }
+        adultDlg.querySelector('#adult-text').textContent = '"' + name + '" มีแท็ก 18+ และอาจมีภาพหรือเนื้อหาที่ไม่เหมาะสมกับผู้เยาว์';
+        adultDlg.querySelector('#adult-go').href = href;
+        if (typeof adultDlg.showModal === 'function') adultDlg.showModal(); else location.href = href;
+    }
+    document.addEventListener('click', function (e) {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        var a = e.target.closest && e.target.closest('a[data-adult]');
+        if (!a) return;
+        e.preventDefault();
+        adultGate(a.href, a.dataset.name || 'เรื่องนี้');
+    });
 
     // ---------- Chrome (header / footer) ----------
     function renderChrome() {
@@ -254,7 +318,7 @@
 
     window.MC = {
         $: $, $$: $$, esc: esc, safeUrl: safeUrl, safeNext: safeNext, debounce: debounce,
-        api: api, me: me, toast: toast, icon: icon, TYPES: TYPES, typeOf: typeOf,
+        api: api, me: me, toast: toast, icon: icon, TYPES: TYPES, typeOf: typeOf, isAdult: isAdult,
         isFav: isFav, bookCard: bookCard, toggleFav: toggleFav, paintFav: paintFav
     };
 })();

@@ -3,11 +3,71 @@
     var MC = window.MC;
     var esc = MC.esc, icon = MC.icon;
 
-    var TEXT_FIELDS = ['th_name', 'en_name', 'jp_name', 'cover', 'rating', 'description', 'author', 'artist',
-        'translator', 'translator_link', 'thai_url', 'thai_url_Buy', 'eng_url', 'eng_url_Buy',
-        'original_url', 'original_url_Buy', 'facebook_post_url',
-        'format', 'episodes', 'air_status', 'aired', 'premiered', 'broadcast', 'producers', 'licensors', 'source', 'duration', 'age_rating',
-        'series', 'season_label', 'season_order'];
+    // ช่องที่ใช้ร่วมกันทุกหมวด (id ตรงๆ)
+    var COMMON_FIELDS = ['th_name', 'en_name', 'jp_name', 'cover', 'rating', 'description', 'series', 'season_label', 'season_order'];
+
+    // ช่องเฉพาะหมวด: แต่ละหมวดมีฟอร์มของตัวเอง id = <หมวด>-<ชื่อช่อง> (เก็บลง field เดียวกันใน DB)
+    function F(k, label, o) { var f = { k: k, label: label }; for (var x in (o || {})) f[x] = o[x]; return f; }
+    var URLO = { url: true, ph: 'https://...' };
+    var PANES = {
+        manga: [
+            { legend: 'ทีมงาน', fields: [F('author', 'ผู้แต่ง'), F('artist', 'ผู้วาด'), F('translator', 'ผู้แปล / ค่ายแปล'), F('translator_link', 'ลิงก์ค่ายแปล', URLO)] },
+            { legend: 'ข้อมูลมังงะ', cols: 3, fields: [
+                F('format', 'ประเภท', { ph: 'Manga, Manhwa, Webtoon', list: ['Manga', 'Manhwa', 'Manhua', 'Webtoon', 'Light Novel'] }),
+                F('episodes', 'จำนวนตอน / เล่ม', { ph: 'เช่น 120' }),
+                F('air_status', 'สถานะ', { list: ['จบแล้ว', 'กำลังเผยแพร่', 'พักการเผยแพร่'] }),
+                F('aired', 'ช่วงที่เผยแพร่', { ph: '2018 - ปัจจุบัน' }),
+                F('producers', 'สำนักพิมพ์'),
+                F('licensors', 'ผู้ถือลิขสิทธิ์ไทย'),
+                F('age_rating', 'เรทอายุ', { ph: '18+ จะขึ้นคำเตือนเนื้อหาล่อแหลม' }),
+                F('themes', 'ธีม', { themes: true, ph: 'คั่นด้วยจุลภาค (,)' })] },
+            { legend: 'ลิงก์อ่าน', fields: [F('thai_url', 'อ่านแปลไทย', URLO), F('eng_url', 'อ่านภาษาอังกฤษ', URLO), F('original_url', 'ต้นฉบับ (Raw)', URLO), F('facebook_post_url', 'โพสต์ Facebook', URLO)] },
+            { legend: 'ลิงก์ซื้อฉบับลิขสิทธิ์ (แบบเดิม)', cols: 3, fields: [F('thai_url_Buy', 'ฉบับไทย', URLO), F('eng_url_Buy', 'ฉบับอังกฤษ', URLO), F('original_url_Buy', 'ฉบับต้นฉบับ', URLO)] }
+        ],
+        anime: [
+            { legend: 'สตูดิโอและต้นเรื่อง', fields: [F('author', 'ต้นฉบับ / ผู้แต่ง'), F('translator', 'สตูดิโอ (Studios)'), F('translator_link', 'ลิงก์สตูดิโอ / เว็บทางการ', URLO)] },
+            { legend: 'ข้อมูลอนิเมะ', cols: 3, fields: [
+                F('format', 'ประเภท', { ph: 'TV', list: ['TV', 'Movie', 'OVA', 'ONA', 'Special'] }),
+                F('episodes', 'จำนวนตอน', { ph: 'เช่น 11' }),
+                F('air_status', 'สถานะ', { list: ['Finished Airing', 'Currently Airing', 'Not yet aired'] }),
+                F('aired', 'ออกอากาศ', { ph: 'Apr 11, 2021 to Jun 20, 2021' }),
+                F('premiered', 'ซีซันที่เริ่ม', { ph: 'Spring 2021' }),
+                F('broadcast', 'เวลาออกอากาศ', { ph: 'Sundays at 00:00 (JST)' }),
+                F('producers', 'ผู้ผลิต (Producers)', { ph: 'คั่นด้วยจุลภาค' }),
+                F('licensors', 'ผู้ถือลิขสิทธิ์'),
+                F('source', 'ต้นเรื่อง', { ph: 'Light novel, Manga, Original' }),
+                F('duration', 'ความยาวต่อตอน', { ph: '23 min. per ep.' }),
+                F('age_rating', 'เรทอายุ', { ph: '18+ จะขึ้นคำเตือนเนื้อหาล่อแหลม' }),
+                F('themes', 'ธีม', { themes: true, ph: 'Mecha, Military' })] },
+            { legend: 'ลิงก์ดู', fields: [F('thai_url', 'ดูซับไทย', URLO), F('eng_url', 'ดูซับอังกฤษ', URLO), F('original_url', 'ต้นฉบับ (Raw)', URLO), F('facebook_post_url', 'โพสต์ Facebook', URLO)] },
+            { legend: 'ช่องทางถูกลิขสิทธิ์ (แบบเดิม)', cols: 3, fields: [F('thai_url_Buy', 'สตรีมถูกลิขสิทธิ์ (ไทย)', URLO), F('eng_url_Buy', 'สตรีมถูกลิขสิทธิ์ (สากล)', URLO), F('original_url_Buy', 'ช่องทางต้นฉบับ (ญี่ปุ่น)', URLO)] }
+        ]
+    };
+    var PANE_HEAD = {
+        manga: ['กรอกข้อมูลมังงะ', 'ช่องในส่วนนี้ใช้เฉพาะมังงะ'],
+        anime: ['กรอกข้อมูลอนิเมะ', 'ช่องในส่วนนี้ใช้เฉพาะอนิเมะ — ข้อมูลของหมวดอื่นที่กรอกไว้จะไม่ถูกบันทึก']
+    };
+
+    function buildPanes() {
+        Object.keys(PANES).forEach(function (type) {
+            var host = document.getElementById('pane-' + type);
+            host.innerHTML = PANES[type].map(function (g) {
+                return '<fieldset class="group"><legend>' + esc(g.legend) + '</legend><div class="' + (g.cols === 3 ? 'grid-3' : 'grid-2') + '">' +
+                    g.fields.map(function (f) {
+                        var id = type + '-' + f.k;
+                        var dl = f.list ? '<datalist id="dl-' + id + '">' + f.list.map(function (o) { return '<option value="' + esc(o) + '">'; }).join('') + '</datalist>' : '';
+                        return '<div class="field"><label for="' + id + '">' + esc(f.label) + '</label>' +
+                            '<input class="input" id="' + id + '"' + (f.url ? ' type="url" inputmode="url"' : '') +
+                            (f.list ? ' list="dl-' + id + '"' : '') + ' maxlength="300"' + (f.ph ? ' placeholder="' + esc(f.ph) + '"' : '') + '>' + dl + '</div>';
+                    }).join('') + '</div></fieldset>';
+            }).join('');
+        });
+    }
+    function typedKeys(type) {
+        var out = [];
+        PANES[type].forEach(function (g) { g.fields.forEach(function (f) { if (!f.themes) out.push(f.k); }); });
+        return out;
+    }
 
     var list = [];
     var pendingDelete = null;
@@ -148,12 +208,21 @@
     }
     function applyType() {
         var T = MC.TYPES[currentType()];
+        Object.keys(PANES).forEach(function (t) {
+            var p = document.getElementById('pane-' + t);
+            p.hidden = t !== T.key;      // ซ่อนฟอร์มของอีกหมวด
+            p.disabled = t !== T.key;    // และไม่นับรวมตอน validate / ส่งข้อมูล
+        });
+        MC.$('#pane-title').textContent = PANE_HEAD[T.key][0];
+        MC.$('#pane-sub').textContent = PANE_HEAD[T.key][1];
         MC.$$('[data-t]', form).forEach(function (el) { el.textContent = T[el.dataset.t]; });
         MC.$$('[data-only]', form).forEach(function (el) { el.classList.toggle('hide', el.dataset.only !== T.key); });
         if (!editId.value) MC.$('#form-title').textContent = T.newTitle;
         MC.$('#chapter-bulk').placeholder = T.epWord + '12 | https://facebook.com/...\nhttps://facebook.com/...';
     }
     form.addEventListener('change', function (e) { if (e.target.name === 'type') applyType(); });
+    buildPanes();
+    applyType();
 
     // ---------- Legal links (หลายช่องทาง) ----------
     var legalRows = MC.$('#legal-rows');
@@ -203,9 +272,27 @@
     MC.$('#tab-form').addEventListener('click', function () { showTab('form'); });
 
     // ---------- List ----------
+    var listType = '';
+    function renderListTypes() {
+        var n = { '': list.length, manga: 0, anime: 0 };
+        list.forEach(function (m) { n[m.type === 'anime' ? 'anime' : 'manga']++; });
+        MC.$('#list-types').innerHTML = [['', 'ทั้งหมด'], ['manga', 'มังงะ'], ['anime', 'อนิเมะ']].map(function (o) {
+            return '<button class="seg-btn" type="button" role="tab" data-lt="' + o[0] + '" data-k="' + (o[0] || 'all') + '" aria-selected="' + (listType === o[0]) + '">' +
+                esc(o[1]) + '<span class="seg-n">' + n[o[0]] + '</span></button>';
+        }).join('');
+    }
+    MC.$('#list-types').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-lt]');
+        if (!b) return;
+        listType = b.dataset.lt;
+        renderRows();
+    });
+
     function renderRows() {
         var q = MC.$('#filter').value.trim().toLowerCase();
+        renderListTypes();
         var items = list.filter(function (m) {
+            if (listType && (m.type === 'anime' ? 'anime' : 'manga') !== listType) return false;
             return !q || [m.th_name, m.title, m.en_name, m.jp_name].some(function (v) { return v && String(v).toLowerCase().indexOf(q) !== -1; });
         });
         if (!items.length) {
@@ -305,11 +392,13 @@
             resetForm();
             editId.value = d._id;
             setType(d.type);
-            TEXT_FIELDS.forEach(function (f) {
+            COMMON_FIELDS.forEach(function (f) {
                 MC.$('#' + f).value = asText(d[f]) || (f === 'th_name' ? asText(d.title) : '');
             });
+            var tk = currentType();
+            typedKeys(tk).forEach(function (f) { MC.$('#' + tk + '-' + f).value = asText(d[f]); });
+            MC.$('#' + tk + '-themes').value = tagsToText(d.themes);
             MC.$('#tags').value = tagsToText(d.tags);
-            MC.$('#themes').value = tagsToText(d.themes);
             renderChapterRows(d.chapters);
             renderLegalRows(d.legal_links);
             MC.$('#form-title').textContent = 'แก้ไข: ' + (d.th_name || d.title || 'เรื่องนี้');
@@ -326,8 +415,6 @@
     form.addEventListener('submit', function (e) {
     e.preventDefault();
 
-    console.log('[DEBUG] submit event fired');
-
     if (!form.reportValidity()) {
         console.warn('[DEBUG] Form validation failed');
         MC.toast('มีข้อมูลบางช่องไม่ถูกต้อง กรุณาตรวจสอบ URL', 'error');
@@ -336,9 +423,12 @@
 
     var payload = {};
 
-    TEXT_FIELDS.forEach(function (f) {
+    COMMON_FIELDS.forEach(function (f) {
         payload[f] = MC.$('#' + f).value.trim();
     });
+    var ct = currentType();
+    typedKeys(ct).forEach(function (f) { payload[f] = MC.$('#' + ct + '-' + f).value.trim(); });
+    payload.themes = MC.$('#' + ct + '-themes').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
 
     payload.type = currentType();
     payload.title = payload.th_name;
@@ -347,13 +437,8 @@
         .map(function (t) { return t.trim(); })
         .filter(Boolean);
 
-    payload.themes = MC.$('#themes').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
     payload.chapters = collectChapters();
     payload.legal_links = collectLegal();
-
-    // DEBUG: ตรวจสอบข้อมูลก่อนส่ง
-    console.log('[DEBUG] chapters:', payload.chapters);
-    console.log('[DEBUG] payload:', JSON.stringify(payload, null, 2));
 
     var id = editId.value;
     var url = id
@@ -367,8 +452,6 @@
         body: payload
     })
     .then(function (r) {
-        // DEBUG: ตรวจสอบผลตอบกลับจาก API
-        console.log('[DEBUG] API response:', r);
 
         saveBtn.disabled = false;
 

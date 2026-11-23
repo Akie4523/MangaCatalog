@@ -104,44 +104,83 @@
         if (m.en_name) alt.push('EN: ' + m.en_name);
         if (m.jp_name) alt.push('OG: ' + m.jp_name);
 
-        view.innerHTML =
+        var titleBlock = '<h1>' + esc(name) + '</h1>' + (alt.length ? '<p class="alt">' + alt.map(esc).join('<br>') + '</p>' : '');
+        var actions =
+            '<button class="btn btn-sm" id="fav-btn" type="button" aria-pressed="' + faved + '">' + icon('heart', 'i-heart') + '<span>' + favLabel(faved) + '</span></button>' +
+            (user.role === 'admin' ? '<a class="btn btn-sm" href="/admin?edit=' + encodeURIComponent(m._id) + '">' + icon('edit') + '<span>แก้ไข</span></a>' : '');
+        var warn = MC.isAdult(m) ? '<div class="adult-warn" role="note">' + icon('alert') + '<div><strong>เรื่องนี้มีเนื้อหาล่อแหลม (18+)</strong><span>อาจมีภาพหรือเนื้อหาที่ไม่เหมาะสมกับผู้เยาว์ เหมาะสำหรับผู้มีอายุ 18 ปีขึ้นไป</span></div></div>' : '';
+        var tagsHtml = '<div class="tags">' +
+            '<span class="tag tag-type">' + esc(T.label) + '</span>' +
+            (m.rating ? '<span class="tag tag-rating">' + icon('star') + esc(m.rating) + '</span>' : '') +
+            (m.tags || []).map(function (t) { return '<a class="tag" href="/?tag=' + encodeURIComponent(t) + '">' + esc(t) + '</a>'; }).join('') +
+            '</div>';
+        var body =
+            '<section><div class="sec-h"><h2>เรื่องย่อ</h2></div><p class="synopsis">' + esc(m.description || 'ยังไม่มีเรื่องย่อ') + '</p></section>' +
+            renderSeasons(m, T) +
+            '<dl class="credits">' +
+                '<div><dt>' + esc(T.authorRole) + '</dt><dd>' + esc(m.author || '-') + '</dd></div>' +
+                (T.key === 'anime' ? '' : '<div><dt>ผู้วาด</dt><dd>' + esc(m.artist || '-') + '</dd></div>') +
+                '<div><dt>' + esc(T.creditRole) + '</dt><dd>' + translator + '</dd></div>' +
+            '</dl>' +
+            renderInfo(m, T) +
+            chaptersHtml;
+        var links =
+            '<section class="panel" aria-label="ลิงก์อ่านและซื้อ">' +
+                (read ? '<div class="link-group"><h2>' + esc(T.group) + '</h2>' + read + '</div>' : '') +
+                jumpChaptersBtn +
+                (buy ? '<div class="link-group"><h2>' + esc(T.buyGroup) + '</h2>' + buy + '</div>' : '') +
+                (!read && !buy && !jumpChaptersBtn ? '<p class="muted">ยังไม่มีลิงก์สำหรับเรื่องนี้</p>' : '') +
+            '</section>';
+        var crumb = '<a class="crumb" href="/?type=' + T.key + '">' + icon('back') + '<span>กลับไปหน้า' + esc(T.label) + '</span></a>';
+
+        if (landscape && cover) {
+         // ปกแนวนอน: เวทีภาพเต็มความกว้าง ชื่อเรื่องทับขอบล่าง กล่องลิงก์ย้ายไปคอลัมน์ขวา
+         view.innerHTML = crumb +
+             '<div class="dl">' +
+                 '<figure class="stage">' +
+                     '<img class="bg" src="' + esc(cover) + '" alt="" aria-hidden="true" referrerpolicy="no-referrer">' +
+                     '<span class="shade"></span>' +
+                     '<img class="main-img" src="' + esc(cover) + '" alt="ปกเรื่อง ' + esc(name) + '" referrerpolicy="no-referrer">' +
+                     '<figcaption class="stage-cap">' +
+                         '<div class="stage-title-box">' + titleBlock + '</div>' +
+                         '<div class="row-actions stage-actions-box">' + actions + '</div>' +
+                     '</figcaption>' +
+                 '</figure>' +
+                 '<div class="dl-cols">' +
+                     '<div class="detail-main">' + warn + tagsHtml + body + '</div>' +
+                     '<aside class="dl-side">' + links + '</aside>' +
+                 '</div>' +
+             '</div>';
+         return;
+     }
+
+        view.innerHTML = crumb +
             '<div class="detail">' +
                 '<div class="detail-aside">' +
                     '<div class="cover">' + (cover ? '<img src="' + esc(cover) + '" alt="ปกเรื่อง ' + esc(name) + '" referrerpolicy="no-referrer">' : '') + '</div>' +
-                    '<section class="panel" aria-label="ลิงก์อ่านและซื้อ">' +
-                        (read ? '<div class="link-group"><h2>' + esc(T.group) + '</h2>' + read + '</div>' : '') +
-                        jumpChaptersBtn +
-                        (buy ? '<div class="link-group"><h2>' + esc(T.buyGroup) + '</h2>' + buy + '</div>' : '') +
-                        (!read && !buy && !jumpChaptersBtn ? '<p class="muted">ยังไม่มีลิงก์สำหรับเรื่องนี้</p>' : '') +
-                    '</section>' +
+                    links +
                 '</div>' +
                 '<div class="detail-main">' +
-                    '<div class="title-row">' +
-                        '<div>' +
-                            '<h1>' + esc(name) + '</h1>' +
-                            (alt.length ? '<p class="alt">' + alt.map(esc).join('<br>') + '</p>' : '') +
-                        '</div>' +
-                        '<div class="row-actions">' +
-                            '<button class="btn btn-sm" id="fav-btn" type="button" aria-pressed="' + faved + '">' + icon('heart', 'i-heart') + '<span>' + favLabel(faved) + '</span></button>' +
-                            (user.role === 'admin' ? '<a class="btn btn-sm" href="/admin?edit=' + encodeURIComponent(m._id) + '">' + icon('edit') + '<span>แก้ไข</span></a>' : '') +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="tags">' +
-                        '<span class="tag tag-type">' + esc(T.label) + '</span>' +
-                        (m.rating ? '<span class="tag tag-rating">' + icon('star') + esc(m.rating) + '</span>' : '') +
-                        (m.tags || []).map(function (t) { return '<a class="tag" href="/?tag=' + encodeURIComponent(t) + '">' + esc(t) + '</a>'; }).join('') +
-                    '</div>' +
-                    '<section><div class="sec-h"><h2>เรื่องย่อ</h2></div><p class="synopsis">' + esc(m.description || 'ยังไม่มีเรื่องย่อ') + '</p></section>' +
-                    renderSeasons(m, T) +
-                    '<dl class="credits">' +
-                        '<div><dt>' + esc(T.authorRole) + '</dt><dd>' + esc(m.author || '-') + '</dd></div>' +
-                        (T.key === 'anime' ? '' : '<div><dt>ผู้วาด</dt><dd>' + esc(m.artist || '-') + '</dd></div>') +
-                        '<div><dt>' + esc(T.creditRole) + '</dt><dd>' + translator + '</dd></div>' +
-                    '</dl>' +
-                    renderInfo(m, T) +
-                    chaptersHtml +
+                    '<div class="title-row"><div>' + titleBlock + '</div><div class="row-actions">' + actions + '</div></div>' +
+                    warn + tagsHtml + body +
                 '</div>' +
             '</div>';
+    }
+
+    // เช็กสัดส่วนปกก่อนวาดหน้า เพื่อเลือกเลย์เอาต์ (ไม่ให้หน้ากระโดดทีหลัง) — โหลดไม่ขึ้น/ช้าเกิน 2.5 วิ ใช้แบบแนวตั้ง
+    var landscape = false;
+    function probeCover(url) {
+        return new Promise(function (resolve) {
+            var u = safeUrl(url);
+            if (!u) return resolve(false);
+            var img = new Image(), done = false;
+            var finish = function (v) { if (!done) { done = true; resolve(v); } };
+            img.referrerPolicy = 'no-referrer';
+            img.onload = function () { finish(img.naturalWidth > img.naturalHeight * 1.15); };
+            img.onerror = function () { finish(false); };
+            setTimeout(function () { finish(false); }, 2500);
+            img.src = u;
+        });
     }
 
     // ---------- Events ----------
@@ -208,6 +247,6 @@
         if (res[0].status === 404) return message('ไม่พบเรื่องนี้ อาจถูกลบไปแล้ว', 'error');
         if (!res[0].ok) return message('โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง', 'error');
         manga = res[0].data;
-        render();
+        return probeCover(manga.cover).then(function (land) { landscape = land; render(); });
     });
 })();
