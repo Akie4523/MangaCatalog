@@ -5,6 +5,7 @@
     var tagsEl = MC.$('#tags');
     var typesEl = MC.$('#types');
     var countEl = MC.$('#count');
+    var latestEl = MC.$('#latest');
     var search = MC.$('#q');
     var filterBtn = MC.$('#filter-btn');
     var filterPanel = MC.$('#filter-panel');
@@ -66,6 +67,52 @@
         filterBtn.classList.toggle('on', !!activeTag);
     }
 
+    // ---------- มาใหม่ 5 เรื่องล่าสุด (เวลาเพิ่มดึงจาก timestamp ใน ObjectId) ----------
+    var NEW_DAYS = 7;
+    function createdMs(m) {
+        var id = String(m._id || '');
+        return /^[a-f\d]{24}$/i.test(id) ? parseInt(id.slice(0, 8), 16) * 1000 : 0;
+    }
+    function ago(ms) {
+        if (!ms) return '';
+        var s = Math.max(0, (Date.now() - ms) / 1000), n;
+        if (s < 60) return 'เมื่อสักครู่';
+        if ((n = Math.floor(s / 60)) < 60) return n + ' นาทีที่แล้ว';
+        if ((n = Math.floor(s / 3600)) < 24) return n + ' ชม.ที่แล้ว';
+        if ((n = Math.floor(s / 86400)) < 2) return 'เมื่อวาน';
+        if (n < 30) return n + ' วันที่แล้ว';
+        if (n < 365) return Math.floor(n / 30) + ' เดือนที่แล้ว';
+        return Math.floor(n / 365) + ' ปีที่แล้ว';
+    }
+    function isFresh(ms) { return ms && Date.now() - ms < NEW_DAYS * 86400000; }
+
+    function link(m) {
+        return '<a href="/detail?id=' + encodeURIComponent(m._id || m.id) + '"' + (MC.isAdult(m) ? ' data-adult data-name="' + MC.esc(m.th_name || m.title || '') + '"' : '');
+    }
+
+    function renderLatest(show) {
+        var items = show ? all.filter(inType).slice().sort(function (a, b) { return createdMs(b) - createdMs(a); }).slice(0, 5) : [];
+        if (!items.length) { latestEl.innerHTML = ''; return; }
+        var f = items[0], fc = MC.safeUrl(f.cover), ft = MC.typeOf(f), fms = createdMs(f);
+        var feat = link(f) + ' class="feat">' +
+            (fc ? '<img class="feat-bg" src="' + MC.esc(fc) + '" alt="" aria-hidden="true" referrerpolicy="no-referrer"><img class="feat-img" src="' + MC.esc(fc) + '" alt="" referrerpolicy="no-referrer">' : '') +
+            '<span class="badges"><span class="type-badge">ใหม่ล่าสุด</span>' + (ft.key === 'anime' ? '<span class="type-badge ink">อนิเมะ</span>' : '') + (MC.isAdult(f) ? '<span class="adult-badge">18+</span>' : '') + '</span>' +
+            '<span class="feat-in"><h3>' + MC.esc(f.th_name || f.title || 'ไม่มีชื่อ') + '</h3>' +
+            '<p>' + MC.esc([f.author, (f.tags || []).slice(0, 3).join(' · ')].filter(Boolean).join(' — ')) + '</p>' +
+            '<span class="when">เพิ่ม ' + MC.esc(ago(fms)) + '</span></span></a>';
+        var minis = items.slice(1).map(function (m) {
+            var c = MC.safeUrl(m.cover), ms = createdMs(m);
+            return link(m) + ' class="mini">' +
+                '<span class="cover">' + (c ? '<img src="' + MC.esc(c) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">' : '') + '</span>' +
+                '<span class="mini-t"><h3>' + MC.esc(m.th_name || m.title || 'ไม่มีชื่อ') + '</h3>' +
+                '<small>' + MC.esc(MC.typeOf(m).label) + (m.author ? ' · ' + MC.esc(m.author) : '') + '</small>' +
+                '<small class="mini-when">' + (isFresh(ms) ? '<span class="pill">ใหม่</span>' : '') + (MC.isAdult(m) ? '<span class="adult-badge">18+</span>' : '') + MC.esc(ago(ms)) + '</small></span></a>';
+        }).join('');
+        latestEl.innerHTML =
+            '<div class="shelf-h"><h2>มาใหม่ <span class="spark">NEW</span></h2><span class="shelf-n">' + items.length + ' เรื่องล่าสุดที่เพิ่มเข้ามา</span></div>' +
+            '<div class="hero5">' + feat + (minis ? '<div class="minis">' + minis + '</div>' : '') + '</div>';
+    }
+
     function matches(m, q) {
         if (!inType(m)) return false;
         if (activeTag && (m.tags || []).indexOf(activeTag) === -1) return false;
@@ -92,6 +139,7 @@
         if (search.value.trim()) next.set('q', search.value.trim());
         history.replaceState(null, '', location.pathname + (next.toString() ? '?' + next : ''));
 
+        renderLatest(!q && !activeTag);
         var pool = all.filter(inType).length;
         var noun = activeType === 'anime' ? 'อนิเมะ' : activeType === 'manga' ? 'มังงะ' : 'มังงะและอนิเมะ';
         var text = (q || activeTag) ? 'พบ ' + list.length + ' เรื่อง' : 'ทั้งหมด ' + pool + ' เรื่อง' + (activeType ? ' ใน' + noun : '');
