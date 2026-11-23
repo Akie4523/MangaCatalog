@@ -34,10 +34,19 @@
         </section>
 
         <div class="wrap">
-            <div id="types" class="seg" role="tablist" aria-label="หมวด"></div>
-            <div id="tags" class="chips" role="group" aria-label="กรองตามหมวด"></div>
+            <div class="toolbar">
+                <div id="types" class="seg seg-lg" role="tablist" aria-label="หมวด"></div>
+                <button class="btn filter-btn" id="filter-btn" type="button" aria-expanded="false" aria-controls="filter-panel">
+                    <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+                    <span>ตัวกรอง</span><span class="filter-n hide" id="filter-n"></span>
+                </button>
+            </div>
+            <div id="filter-panel" class="filter-panel hide">
+                <div class="filter-h"><strong>กรองตามแท็ก</strong><button class="btn btn-sm btn-ghost" id="filter-clear" type="button">ล้างตัวกรอง</button></div>
+                <div id="tags" class="chips" role="group" aria-label="กรองตามแท็ก"></div>
+            </div>
             <p id="count" class="count" aria-live="polite"></p>
-            <div id="shelf" class="shelf"></div>
+            <div id="shelf"></div>
         </div>
     </main>
 

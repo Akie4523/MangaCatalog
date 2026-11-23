@@ -702,7 +702,7 @@ app.get('/auth/google/callback', googleLimiter, wrap(async (req, res) => {
 }));
 
 // --- Manga (อ่านได้ทุกคน / แก้ไขได้เฉพาะแอดมิน) ---
-const LIST_FIELDS = '_id id type series title th_name en_name jp_name cover author tags rating';
+const LIST_FIELDS = '_id id type series age_rating title th_name en_name jp_name cover author tags rating';
 
 app.get('/manga', wrap(async (req, res) => {
     // ?type=anime|manga (manga รวมเรื่องเก่าที่ยังไม่มีฟิลด์ type) — ไม่ระบุ = ทุกหมวด

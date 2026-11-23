@@ -6,6 +6,9 @@
     var typesEl = MC.$('#types');
     var countEl = MC.$('#count');
     var search = MC.$('#q');
+    var filterBtn = MC.$('#filter-btn');
+    var filterPanel = MC.$('#filter-panel');
+    var filterN = MC.$('#filter-n');
 
     var all = [];
     var user = { loggedIn: false, favorites: [] };
@@ -24,10 +27,18 @@
     });
     MC.$('#welcome-ok').addEventListener('click', function () { dlg.close(); });
 
+    // ---------- Filter panel (ซ่อนไว้ กดปุ่มเพื่อเปิด) ----------
+    function setPanel(open) {
+        filterPanel.classList.toggle('hide', !open);
+        filterBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    filterBtn.addEventListener('click', function () { setPanel(filterPanel.classList.contains('hide')); });
+    MC.$('#filter-clear').addEventListener('click', function () { activeTag = ''; renderTags(); render(); });
+
     // ---------- Render ----------
     function skeleton() {
         var one = '<div class="sk"><div class="sk-cover"></div><div class="sk-line"></div><div class="sk-line short"></div></div>';
-        shelf.innerHTML = new Array(12 + 1).join(one);
+        shelf.innerHTML = '<div class="shelf">' + new Array(12 + 1).join(one) + '</div>';
     }
 
     function inType(m) { return !activeType || MC.typeOf(m).key === activeType; }
@@ -37,7 +48,7 @@
         all.forEach(function (m) { n[MC.typeOf(m).key]++; });
         var opts = [['', 'ทั้งหมด'], ['manga', 'มังงะ'], ['anime', 'อนิเมะ']];
         typesEl.innerHTML = opts.map(function (o) {
-            return '<button class="seg-btn" type="button" role="tab" data-type="' + o[0] + '" aria-selected="' + (activeType === o[0]) + '">' +
+            return '<button class="seg-btn" type="button" role="tab" data-type="' + o[0] + '" data-k="' + (o[0] || 'all') + '" aria-selected="' + (activeType === o[0]) + '">' +
                 MC.esc(o[1]) + '<span class="seg-n">' + n[o[0]] + '</span></button>';
         }).join('');
     }
@@ -50,6 +61,9 @@
             return '<button class="chip" type="button" data-tag="' + MC.esc(value) + '" aria-pressed="' + (activeTag === value) + '">' + MC.esc(label) + '</button>';
         };
         tagsEl.innerHTML = chip('', 'ทั้งหมด') + names.map(function (t) { return chip(t, t); }).join('');
+        filterN.textContent = activeTag ? '1' : '';
+        filterN.classList.toggle('hide', !activeTag);
+        filterBtn.classList.toggle('on', !!activeTag);
     }
 
     function matches(m, q) {
@@ -59,6 +73,13 @@
         return [m.th_name, m.title, m.en_name, m.jp_name, m.author].some(function (v) {
             return v && String(v).toLowerCase().indexOf(q) !== -1;
         });
+    }
+
+    function group(key, title, items, favs) {
+        if (!items.length) return '';
+        return '<section class="shelf-sec" data-k="' + key + '" aria-label="' + MC.esc(title) + '">' +
+            '<div class="shelf-h"><h2>' + MC.esc(title) + '</h2><span class="shelf-n">' + items.length + ' เรื่อง</span></div>' +
+            '<div class="shelf">' + items.map(function (m, i) { return MC.bookCard(m, favs(m), i); }).join('') + '</div></section>';
     }
 
     function render() {
@@ -73,13 +94,24 @@
 
         var pool = all.filter(inType).length;
         var noun = activeType === 'anime' ? 'อนิเมะ' : activeType === 'manga' ? 'มังงะ' : 'มังงะและอนิเมะ';
-        countEl.textContent = (q || activeTag) ? 'พบ ' + list.length + ' เรื่อง' : 'ทั้งหมด ' + pool + ' เรื่อง' + (activeType ? ' ใน' + noun : '');
+        var text = (q || activeTag) ? 'พบ ' + list.length + ' เรื่อง' : 'ทั้งหมด ' + pool + ' เรื่อง' + (activeType ? ' ใน' + noun : '');
+        countEl.innerHTML = MC.esc(text) + (activeTag
+            ? ' <button class="chip chip-on" type="button" data-clear-tag aria-label="ล้างแท็ก ' + MC.esc(activeTag) + '">' + MC.esc(activeTag) + MC.icon('close') + '</button>'
+            : '');
 
         if (!list.length) {
             shelf.innerHTML = '<div class="empty"><p>ไม่พบเรื่องที่ตรงกับคำค้น</p><button class="btn btn-sm" type="button" id="reset">ล้างตัวกรอง</button></div>';
             return;
         }
-        shelf.innerHTML = list.map(function (m, i) { return MC.bookCard(m, MC.isFav(user, m), i); }).join('');
+        var favs = function (m) { return MC.isFav(user, m); };
+        if (activeType) {
+            shelf.innerHTML = '<div class="shelf">' + list.map(function (m, i) { return MC.bookCard(m, favs(m), i); }).join('') + '</div>';
+        } else {
+            // หมวด "ทั้งหมด" แยกเป็นสองส่วนชัดเจน: มังงะ / อนิเมะ
+            shelf.innerHTML =
+                group('manga', 'มังงะ', list.filter(function (m) { return MC.typeOf(m).key === 'manga'; }), favs) +
+                group('anime', 'อนิเมะ', list.filter(function (m) { return MC.typeOf(m).key === 'anime'; }), favs);
+        }
     }
 
     // ---------- Events ----------
@@ -99,7 +131,17 @@
         render();
     });
 
+    countEl.addEventListener('click', function (e) {
+        if (e.target.closest('[data-clear-tag]')) { activeTag = ''; renderTags(); render(); }
+    });
+
     search.addEventListener('input', MC.debounce(render, 120));
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !filterPanel.classList.contains('hide') && !document.querySelector('dialog[open]')) {
+            setPanel(false); filterBtn.focus();
+        }
+    });
 
     shelf.addEventListener('click', function (e) {
         if (e.target.closest('#retry')) { location.reload(); return; }
@@ -133,5 +175,6 @@
         renderTypes();
         renderTags();
         render();
+        if (activeTag) setPanel(true);
     });
 })();

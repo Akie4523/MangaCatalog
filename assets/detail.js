@@ -105,6 +105,7 @@
         if (m.jp_name) alt.push('OG: ' + m.jp_name);
 
         view.innerHTML =
+            '<a class="crumb" href="/?type=' + T.key + '">' + icon('back') + '<span>กลับไปหน้า' + esc(T.label) + '</span></a>' +
             '<div class="detail">' +
                 '<div class="detail-aside">' +
                     '<div class="cover">' + (cover ? '<img src="' + esc(cover) + '" alt="ปกเรื่อง ' + esc(name) + '" referrerpolicy="no-referrer">' : '') + '</div>' +
@@ -126,6 +127,7 @@
                             (user.role === 'admin' ? '<a class="btn btn-sm" href="/admin?edit=' + encodeURIComponent(m._id) + '">' + icon('edit') + '<span>แก้ไข</span></a>' : '') +
                         '</div>' +
                     '</div>' +
+                    (MC.isAdult(m) ? '<div class="adult-warn" role="note">' + icon('alert') + '<div><strong>เรื่องนี้มีเนื้อหาล่อแหลม (18+)</strong><span>อาจมีภาพหรือเนื้อหาที่ไม่เหมาะสมกับผู้เยาว์ เหมาะสำหรับผู้มีอายุ 18 ปีขึ้นไป</span></div></div>' : '') +
                     '<div class="tags">' +
                         '<span class="tag tag-type">' + esc(T.label) + '</span>' +
                         (m.rating ? '<span class="tag tag-rating">' + icon('star') + esc(m.rating) + '</span>' : '') +

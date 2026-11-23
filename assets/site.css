@@ -403,3 +403,83 @@ dialog.sheet .stack { gap: 1rem; }
 a.chip { text-decoration: none; display: inline-flex; align-items: center; }
 .season-cur { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 .info { margin-top: 0; }
+
+/* ---------- Home v2: toolbar / filter / sections ---------- */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .25rem; }
+.toolbar .seg { margin: 0; }
+.seg-lg .seg-btn { min-height: 48px; padding: .6rem 1.2rem; font-size: 1rem; }
+.seg-btn[data-k="anime"][aria-selected="true"] { background: var(--accent); color: var(--on-accent); }
+.filter-btn { position: relative; gap: .5rem; min-height: 48px; }
+.filter-btn.on { border-color: var(--accent); }
+.filter-n { display: inline-grid; place-items: center; min-width: 1.35rem; height: 1.35rem; padding: 0 .3rem; border-radius: 99px; background: var(--accent); color: var(--on-accent); font-size: .75rem; font-weight: 600; }
+.filter-panel { margin-top: .75rem; padding: 1rem; background: var(--panel); border: 2px solid var(--frame); border-radius: var(--radius); box-shadow: 4px 4px 0 var(--accent); }
+.filter-h { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .5rem; }
+.filter-panel .chips { flex-wrap: wrap; overflow: auto; max-height: 40vh; padding-bottom: .25rem; }
+.count { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.chip-on { display: inline-flex; align-items: center; gap: .3rem; min-height: 30px; padding: 0 .6rem; background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.chip-on .i { width: .9em; height: .9em; }
+.shelf-sec { margin-top: 1.75rem; }
+.shelf-sec + .shelf-sec { margin-top: 1rem; }
+.shelf-h { display: flex; align-items: baseline; gap: .75rem; padding-bottom: .6rem; border-bottom: 2px solid var(--frame); }
+.shelf-h h2 { display: flex; align-items: center; gap: .6rem; font-size: 1.4rem; }
+.shelf-h h2::before { content: ""; width: .7rem; height: 1.4rem; border: 2px solid var(--frame); border-radius: 2px; background: var(--ink); }
+.shelf-sec[data-k="anime"] .shelf-h h2::before { background: var(--accent); }
+.shelf-n { color: var(--ink-3); font-size: .875rem; }
+.shelf-sec .shelf { padding-bottom: 1.5rem; }
+.shelf-sec:last-child .shelf { padding-bottom: 3.5rem; }
+@media (prefers-reduced-motion: reduce) { .filter-panel { box-shadow: none; } }
+
+/* badges บนปก */
+.badges { position: absolute; top: .4rem; left: .4rem; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; pointer-events: none; }
+.badges .type-badge { position: static; }
+.adult-badge { padding: .1rem .45rem; font-size: .6875rem; font-weight: 700; letter-spacing: .02em; background: var(--danger); color: #fff; border: 2px solid var(--frame); border-radius: 4px; }
+:root[data-theme="dark"] .adult-badge { background: #E5483B; color: #1A0E0B; }
+
+/* ปกแนวนอน: ภาพเต็มใบบนพื้นหลังเบลอ */
+.cover-preview { position: relative; }
+.cover .cover-bg, .cover-preview .cover-bg {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    filter: blur(12px) saturate(1.15); opacity: .9; pointer-events: none; transform: scale(1.25); transition: none;
+}
+.cover.land > img:not(.cover-bg), .cover-preview.land > img:not(.cover-bg) { position: relative; object-fit: contain; }
+
+/* dialog เตือน 18+ */
+.adult-ic { display: flex; align-items: center; gap: .6rem; color: var(--danger); }
+.adult-ic .i { width: 2rem; height: 2rem; }
+
+/* ---------- Detail v2 ---------- */
+.crumb { display: inline-flex; align-items: center; gap: .4rem; margin-top: 1.25rem; color: var(--ink-2); font-size: .875rem; text-decoration: none; }
+.crumb:hover { color: var(--ink); }
+.crumb .i { width: 1em; height: 1em; }
+.adult-warn { display: flex; align-items: flex-start; gap: .75rem; padding: .9rem 1rem; border: 2px solid var(--danger); border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 9%, var(--panel)); }
+.adult-warn .i { flex: none; width: 1.5rem; height: 1.5rem; color: var(--danger); margin-top: .1rem; }
+.adult-warn strong { display: block; }
+.adult-warn span { color: var(--ink-2); font-size: .9rem; }
+.meta-strip { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; color: var(--ink-2); font-size: .9rem; }
+.meta-strip b { color: var(--ink); font-weight: 600; }
+.info { padding: 1.1rem 1.25rem; background: var(--panel); border: 2px solid var(--rule); border-radius: var(--radius); }
+@media (min-width: 820px) { .detail-aside { position: sticky; top: 5rem; align-self: start; } }
+
+/* ---------- Admin v2 ---------- */
+#list-types { margin: 1rem 0 .75rem; }
+.type-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.type-card {
+    position: relative; display: grid; gap: .2rem; align-content: start; padding: 1rem 1.1rem; cursor: pointer;
+    border: 2px solid var(--rule); border-radius: var(--radius); background: var(--panel);
+    transition: border-color .15s, box-shadow .15s;
+}
+.type-card b { font-size: 1.1rem; }
+.type-card span { color: var(--ink-3); font-size: .8125rem; }
+.type-card input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.type-card:hover { border-color: var(--ink-3); }
+.type-card:has(input:checked) { border-color: var(--frame); box-shadow: 4px 4px 0 var(--ink); }
+.type-card[data-k="anime"]:has(input:checked) { box-shadow: 4px 4px 0 var(--accent); }
+.type-card:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 520px) { .type-pick { grid-template-columns: 1fr; } }
+.pane-head { display: grid; gap: .15rem; margin: 1.5rem 0 .25rem; padding-left: .75rem; border-left: 6px solid var(--ink); }
+body:has(#pane-anime:not([hidden])) .pane-head { border-left-color: var(--accent); }
+.pane-title { font-size: 1.25rem; }
+.pane { display: grid; gap: 1.25rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.pane[hidden] { display: none; }
+.pane fieldset.group + fieldset.group { margin-top: 0; }
+.pane + fieldset.group, .pane + .pane { margin-top: 1.75rem; }
